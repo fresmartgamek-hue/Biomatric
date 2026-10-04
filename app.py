@@ -1363,6 +1363,11 @@ def shutdown():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+@app.route('/shutdown')
+def shutdown():
+    # ... existing shutdown code ...
+    pass
+
 @app.route('/api/attendance/sync', methods=['POST'])
 def sync_attendance():
     try:
@@ -1371,10 +1376,10 @@ def sync_attendance():
             return {'status': 'error', 'message': 'No logs provided'}, 400
             
         logs = data['logs']
-        # Biometric logs process / save karne ka logic
-        # Example: global attendance array ya database update
-        
         print(f"Received {len(logs)} logs from local device.")
         return {'status': 'success', 'message': f'{len(logs)} records synced successfully'}, 200
     except Exception as e:
         return {'status': 'error', 'message': str(e)}, 500
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
