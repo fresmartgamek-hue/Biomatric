@@ -290,7 +290,7 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                         'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
                         'store_in': '-', 'lunch_out': '-', 'lunch_in': '-', 'out_time': '-',
                         'total_lunch': '-', 'lunch_seconds': 3600, 'net_duration_seconds': 0, 'total_hours': '-', 'net_variance': '-', 'variance_type': 'neutral',
-                        'status': 'Absent', 'is_laid': 'No', 'shift_type': '-'
+                        'status': 'Absent', 'is_late': 'No', 'shift_type': '-'
                     })
         
         final_data.extend(present_records + mispunch_records + off_records + absent_records + ml_records)
@@ -1343,14 +1343,12 @@ def export_matrix():
 
 @app.route('/shutdown')
 def shutdown():
-    if session.get('role') in ['admin', 'developer'] and request.args.get('pwd') == 'Shama@8577':
-        func = request.environ.get('werkzeug.server.shutdown')
-        if func:
-            func()
-        return "Server successfully shutdown ho gaya hai."
-    return "Unauthorized access!", 403
+    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
+        return redirect(url_for('login'))
+    pwd = request.args.get('pwd')
+    if pwd == "Shama@8577":
+        os._exit(0)
+    return "Unauthorized", 401
 
 if __name__ == '__main__':
-    app.host = '0.0.0.0'
-    app.port = 5000
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    app.run(host='0.0.0.0', port=5000, debug=True)
