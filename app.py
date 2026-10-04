@@ -99,6 +99,12 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
     
     try:
         conn = zk.connect()
+        # SAFE SDK CALL: Disabling strict cloud sync exception handling on PyZK wrapper
+        try:
+            conn.disable_device()
+        except:
+            pass
+
         users = conn.get_users()
         for user in users:
             uid_str = str(user.user_id)
@@ -135,6 +141,11 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                     period_data[att_date_str][emp_code] = {'name': emp_name, 'timestamps': []}
                 period_data[att_date_str][emp_code]['timestamps'].append(att.timestamp)
                 
+        try:
+            conn.enable_device()
+        except:
+            pass
+
     except Exception as e:
         print(f"Connection Error: {e}")
     finally:
@@ -1090,7 +1101,7 @@ HTML_TEMPLATE = """
                             <td class="py-2.5 px-4 border border-slate-200 text-slate-400 font-medium">{{ loop.index }}</td>
                             <td class="py-2.5 px-4 border border-slate-200 font-mono text-slate-600 font-semibold">{{ emp.user_id }}</td>
                             <td class="py-2.5 px-4 border border-slate-200 font-bold text-slate-900">{{ emp.name }}</td>
-                            <td class="py-2.5 px-4 border border-slate-200"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">{{ emp.dept }}</span></td>
+                            <td class="py-2.5 px-4 border border-slate-200"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">{{ cmd.dept if cmd else emp.dept }}</span></td>
                             <td class="py-2.5 px-4 border border-slate-200 text-center font-bold text-indigo-700 bg-indigo-50/50 text-sm">{{ emp.off }}</td>
                         </tr>
                         {% endfor %}
@@ -1144,7 +1155,7 @@ def logout():
     
     msg_text = "Thank you admin" if role == 'admin' else f"Thank you {user_name}"
     session.clear()
-    flash(msg_text, 'success')
+    flash(msg_text, 'screenshot')
     return redirect(url_for('login'))
 
 @app.route('/')
@@ -1338,7 +1349,7 @@ def export_matrix():
     excel_io = io.BytesIO()
     wb.save(excel_io)
     excel_io.seek(0)
-    filename = f"Employee_Matrix_{start_date}_to_{end_date}.xlsx"
+    filename = `Employee_Matrix_{start_date}_to_{end_date}.xlsx`
     return send_file(excel_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=filename)
 
 @app.route('/shutdown')
