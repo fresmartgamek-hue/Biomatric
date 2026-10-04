@@ -1200,6 +1200,34 @@ def shutdown():
         return "Server successfully shutdown ho gaya hai."
     return "Unauthorized access!", 403
 
+# GENERAL SYNC ENDPOINT (/api/sync-attendance)
+@app.route('/api/sync-attendance', methods=['POST'])
+def sync_attendance_general():
+    global SYNCED_ATTENDANCE_LOGS, LAST_DEVICE_SYNC_TIME
+    store_id = 'LM11' # Default store
+    try:
+        data = request.get_json()
+        if not data:
+            return {'status': 'error', 'message': 'No data provided'}, 400
+            
+        logs = data if isinstance(data, list) else data.get('logs', [])
+        existing_keys = {(str(item.get('user_id')), str(item.get('timestamp'))) for item in SYNCED_ATTENDANCE_LOGS[store_id]}
+        
+        added_count = 0
+        for log in logs:
+            key = (str(log.get('user_id')), str(log.get('timestamp')))
+            if key not in existing_keys:
+                SYNCED_ATTENDANCE_LOGS[store_id].append(log)
+                existing_keys.add(key)
+                added_count += 1
+                
+        LAST_DEVICE_SYNC_TIME[store_id] = datetime.now()
+        print(f"Received {len(logs)} logs from general sync. {added_count} new records added.")
+        return {'status': 'success', 'message': f'{len(logs)} records synced successfully ({added_count} new)'}, 200
+    except Exception as e:
+        print(f"Error in sync_attendance_general: {e}")
+        return {'status': 'error', 'message': str(e)}, 500
+
 # BIOMETRIC LOCAL SYNC ENDPOINT FOR BOTH STORES
 @app.route('/api/attendance/sync/<store_id>', methods=['POST'])
 def sync_store_attendance(store_id):
