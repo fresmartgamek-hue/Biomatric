@@ -22,50 +22,60 @@ PORT = 4370
 SYNCED_ATTENDANCE_LOGS = []
 LAST_DEVICE_SYNC_TIME = None
 
+# MASTER STORES LIST
+MASTER_STORES = {
+    'LM11': 'Fresmart Express LM11',
+    'LM12': 'Fresmart Express LM12',
+    'LM13': 'Fresmart Express LM13'
+}
+
+# MASTER EMPLOYEES WITH STORE MAPPING
 MASTER_EMPLOYEES = {
-    'NWC2981': {'name': 'ANTONIO JOSE BANDOLA', 'off': 'SUNDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning'},
-    'NWC3127': {'name': 'MATEUS ANTONIO DA COSTA BALMIRO', 'off': 'FRIDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning'},
-    'NWC1525': {'name': 'ETY JOSÉ BANDUA MONTEIRO', 'off': 'MONDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning'},
-    'NWC8328': {'name': 'JOAO MATIAS DOMINGOS', 'off': 'SATURDAY', 'dept': 'ADMIN - CCTV', 'shift': 'morning'},
-    'NWC6661': {'name': 'FRANCISCO MUNDELE CHIVELA', 'off': 'WEDNESDAY', 'dept': 'ADMIN - CCTV', 'shift': 'morning'},
-    'NWC1553': {'name': 'TIAGO SANDALA CHISSANHA', 'off': 'SUNDAY', 'dept': 'ADMIN - AUDITOR', 'shift': 'morning'},
-    'NWC8350': {'name': 'LOLIVALDO ALBERTO MADEIRA', 'off': 'SUNDAY', 'dept': 'ADMIN - EDP', 'shift': 'morning'},
-    'NWC5187': {'name': 'VICTOR NSOSI JOAO', 'off': 'MONDAY', 'dept': 'CASH - HEAD', 'shift': 'morning'},
-    'NWC1168': {'name': 'ADELIA MBALOMBO CHIPEPI', 'off': 'SUNDAY', 'dept': 'CASH - HEAD', 'shift': 'morning'},
-    'NWC2652': {'name': 'DULCE DOROTEIA GARCIA LUSITANO', 'off': 'MONDAY', 'dept': 'CASH - HEAD', 'shift': 'morning'},
-    'NWC3381': {'name': 'ANDRE DE JESUS NGOLA JOSE', 'off': 'TUESDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC1983': {'name': 'PATRICIA SOLANGE FRANCISCO', 'off': 'THURSDAY', 'dept': 'CASH', 'shift': 'second'},
-    'NWC8364': {'name': 'DIELUMBAKA AUGUSTO', 'off': 'WEDNESDAY', 'dept': 'CASH', 'shift': 'second'},
-    'NWC2788': {'name': 'INES NACHINGOLO FELICIANO NAMBELO', 'off': 'TUESDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC1010': {'name': 'TERESA PEDRO LEAO', 'off': 'FRIDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC6638': {'name': 'CLAUDIO JANUARIO MANUEL AVELINO', 'off': 'SUNDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC5830': {'name': 'REGINA DE FATIMA VIDAL', 'off': 'MONDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC5529': {'name': 'ALEXANDRE LUIS CORREIA', 'off': 'FRIDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC5713': {'name': 'ROSA GARNEIRA BUMBA', 'off': 'WEDNESDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC5396': {'name': 'COSTA BEBIANO HEBO', 'off': 'THURSDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC8361': {'name': 'AGOSTINHO JOAQUIM KUANGO DA COSTA', 'off': 'SUNDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC2300': {'name': 'JOANA CARDOSO JOAQUIM AFONSO', 'off': 'MONDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC5168': {'name': 'JOAO NVUNDA DALA', 'off': 'THURSDAY', 'dept': 'F & V', 'shift': 'morning'},
-    'NWC3711': {'name': 'ANGELA MARIA BUMBA', 'off': 'FRIDAY', 'dept': 'F & V', 'shift': 'morning'},
-    'NWC5186': {'name': 'HELIA DOMINGOS DE CARVALHO', 'off': 'WEDNESDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC6702': {'name': 'DOMINGOS GAMA PEREIRA', 'off': 'FRIDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC3596': {'name': 'ALDAIR FERNANDES FERREIRA', 'off': 'TUESDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC2757': {'name': 'JOSEFA KUELUNGA MUASSOKA', 'off': 'THURSDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC4554': {'name': 'DOMINGOS ANTONIO FERNANDO', 'off': 'THURSDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC2624': {'name': 'CECILIA JORGE FAMOSO', 'off': 'FRIDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC3318': {'name': 'JOSE MANUEL KAZOLA', 'off': 'SUNDAY', 'dept': 'FRESCO', 'shift': 'morning'},
-    'NWC7347': {'name': 'ARMANDO CHICOVO SAMBA', 'off': 'TUESDAY', 'dept': 'FRESCO', 'shift': 'morning'},
-    'NWC8362': {'name': 'ARAUJO PAULOMENDES', 'off': 'FRIDAY', 'dept': 'STOCK', 'shift': 'morning'},
-    'NWC6715': {'name': 'RIBEIRO ANTONIO FRANCISCO', 'off': 'THURSDAY', 'dept': 'STOCK', 'shift': 'morning'},
-    'NWC6444': {'name': 'HENRIQUES BRANDAO', 'off': 'WEDNESDAY', 'dept': 'STOCK', 'shift': 'morning'}
+    'NWC2981': {'name': 'ANTONIO JOSE BANDOLA', 'off': 'SUNDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC3127': {'name': 'MATEUS ANTONIO DA COSTA BALMIRO', 'off': 'FRIDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC1525': {'name': 'ETY JOSÉ BANDUA MONTEIRO', 'off': 'MONDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC8328': {'name': 'JOAO MATIAS DOMINGOS', 'off': 'SATURDAY', 'dept': 'ADMIN - CCTV', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC6661': {'name': 'FRANCISCO MUNDELE CHIVELA', 'off': 'WEDNESDAY', 'dept': 'ADMIN - CCTV', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC1553': {'name': 'TIAGO SANDALA CHISSANHA', 'off': 'SUNDAY', 'dept': 'ADMIN - AUDITOR', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC8350': {'name': 'LOLIVALDO ALBERTO MADEIRA', 'off': 'SUNDAY', 'dept': 'ADMIN - EDP', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC5187': {'name': 'VICTOR NSOSI JOAO', 'off': 'MONDAY', 'dept': 'CASH - HEAD', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC1168': {'name': 'ADELIA MBALOMBO CHIPEPI', 'off': 'SUNDAY', 'dept': 'CASH - HEAD', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC2652': {'name': 'DULCE DOROTEIA GARCIA LUSITANO', 'off': 'MONDAY', 'dept': 'CASH - HEAD', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC3381': {'name': 'ANDRE DE JESUS NGOLA JOSE', 'off': 'TUESDAY', 'dept': 'CASH', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC1983': {'name': 'PATRICIA SOLANGE FRANCISCO', 'off': 'THURSDAY', 'dept': 'CASH', 'shift': 'second', 'store_id': 'LM11'},
+    'NWC8364': {'name': 'DIELUMBAKA AUGUSTO', 'off': 'WEDNESDAY', 'dept': 'CASH', 'shift': 'second', 'store_id': 'LM11'},
+    'NWC2788': {'name': 'INES NACHINGOLO FELICIANO NAMBELO', 'off': 'TUESDAY', 'dept': 'CASH', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC1010': {'name': 'TERESA PEDRO LEAO', 'off': 'FRIDAY', 'dept': 'CASH', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC6638': {'name': 'CLAUDIO JANUARIO MANUEL AVELINO', 'off': 'SUNDAY', 'dept': 'TALHO', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC5830': {'name': 'REGINA DE FATIMA VIDAL', 'off': 'MONDAY', 'dept': 'TALHO', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC5529': {'name': 'ALEXANDRE LUIS CORREIA', 'off': 'FRIDAY', 'dept': 'TALHO', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC5713': {'name': 'ROSA GARNEIRA BUMBA', 'off': 'WEDNESDAY', 'dept': 'TALHO', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC5396': {'name': 'COSTA BEBIANO HEBO', 'off': 'THURSDAY', 'dept': 'TALHO', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC8361': {'name': 'AGOSTINHO JOAQUIM KUANGO DA COSTA', 'off': 'SUNDAY', 'dept': 'SECU', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC2300': {'name': 'JOANA CARDOSO JOAQUIM AFONSO', 'off': 'MONDAY', 'dept': 'SECU', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC5168': {'name': 'JOAO NVUNDA DALA', 'off': 'THURSDAY', 'dept': 'F & V', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC3711': {'name': 'ANGELA MARIA BUMBA', 'off': 'FRIDAY', 'dept': 'F & V', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC5186': {'name': 'HELIA DOMINGOS DE CARVALHO', 'off': 'WEDNESDAY', 'dept': 'SECU', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC6702': {'name': 'DOMINGOS GAMA PEREIRA', 'off': 'FRIDAY', 'dept': 'SECU', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC3596': {'name': 'ALDAIR FERNANDES FERREIRA', 'off': 'TUESDAY', 'dept': 'SECU', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC2757': {'name': 'JOSEFA KUELUNGA MUASSOKA', 'off': 'THURSDAY', 'dept': 'SECU', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC4554': {'name': 'DOMINGOS ANTONIO FERNANDO', 'off': 'THURSDAY', 'dept': 'CASH', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC2624': {'name': 'CECILIA JORGE FAMOSO', 'off': 'FRIDAY', 'dept': 'CASH', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC3318': {'name': 'JOSE MANUEL KAZOLA', 'off': 'SUNDAY', 'dept': 'FRESCO', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC7347': {'name': 'ARMANDO CHICOVO SAMBA', 'off': 'TUESDAY', 'dept': 'FRESCO', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC8362': {'name': 'ARAUJO PAULOMENDES', 'off': 'FRIDAY', 'dept': 'STOCK', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC6715': {'name': 'RIBEIRO ANTONIO FRANCISCO', 'off': 'THURSDAY', 'dept': 'STOCK', 'shift': 'morning', 'store_id': 'LM11'},
+    'NWC6444': {'name': 'HENRIQUES BRANDAO', 'off': 'WEDNESDAY', 'dept': 'STOCK', 'shift': 'morning', 'store_id': 'LM11'}
 }
 
 LEAVE_REQUESTS = []
 
 def get_emp_info(emp_code):
-    val = MASTER_EMPLOYEES.get(str(emp_code), {'name': f'Employee {emp_code}', 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning'})
+    val = MASTER_EMPLOYEES.get(str(emp_code), {'name': f'Employee {emp_code}', 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning', 'store_id': 'LM11'})
     if isinstance(val, str):
-        return {'name': val, 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning'}
+        return {'name': val, 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning', 'store_id': 'LM11'}
+    if 'store_id' not in val:
+        val['store_id'] = 'LM11'
     return val
 
 EMPLOYEE_OVERRIDES = {
@@ -92,7 +102,7 @@ def check_device_connectivity():
             
     return False
 
-def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
+def fetch_attendance_data(start_date_str, end_date_str, filter_user_id='ALL', filter_store_id='ALL'):
     device_online = check_device_connectivity()
     period_data = {}
     raw_punches_list = []
@@ -101,10 +111,11 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
     for k, v in MASTER_EMPLOYEES.items():
         info = get_emp_info(k)
         code_formatted = f"NWC{k}" if not k.startswith('NWC') else k
-        users_map_temp[str(k)] = {'code': code_formatted, 'name': info['name']}
+        users_map_temp[str(k)] = {'code': code_formatted, 'name': info['name'], 'store_id': info['store_id']}
         
     for uid_override, over_data in EMPLOYEE_OVERRIDES.items():
-        users_map_temp[str(uid_override)] = {'code': over_data['code'], 'name': over_data['name']}
+        info = get_emp_info(over_data['code'])
+        users_map_temp[str(uid_override)] = {'code': over_data['code'], 'name': over_data['name'], 'store_id': info['store_id']}
 
     attendance_records = []
     
@@ -122,7 +133,9 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                     info = get_emp_info(uid_str)
                     emp_name = user.name if user.name else info['name']
                     emp_code = f"NWC{uid_str}" if not uid_str.startswith('NWC') else uid_str
-                users_map_temp[uid_str] = {'code': emp_code, 'name': emp_name}
+                
+                info = get_emp_info(emp_code)
+                users_map_temp[uid_str] = {'code': emp_code, 'name': emp_name, 'store_id': info['store_id']}
                 
             attendance = conn.get_attendance()
             for att in attendance:
@@ -167,26 +180,45 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                 info = get_emp_info(clean_uid)
                 emp_name = info['name']
                 emp_code = f"NWC{clean_uid}" if not clean_uid.startswith('NWC') else clean_uid
-                
+
+            emp_info = get_emp_info(emp_code)
+            emp_store = emp_info.get('store_id', 'LM11')
+
+            # STORE FILTER
+            if filter_store_id and filter_store_id != 'ALL' and emp_store != filter_store_id:
+                continue
+
+            # EMPLOYEE FILTER
             if filter_user_id and filter_user_id != 'ALL' and emp_code != filter_user_id and raw_uid != filter_user_id:
                 continue
             
             raw_punches_list.append({
                 'date': att_date_str, 'time': att_ts.strftime('%H:%M:%S'),
-                'user_id': emp_code, 'name': emp_name, 'timestamp': att_ts
+                'user_id': emp_code, 'name': emp_name, 'timestamp': att_ts, 'store_id': emp_store
             })
             
             if att_date_str not in period_data:
                 period_data[att_date_str] = {}
             if emp_code not in period_data[att_date_str]:
-                period_data[att_date_str][emp_code] = {'name': emp_name, 'timestamps': []}
+                period_data[att_date_str][emp_code] = {'name': emp_name, 'timestamps': [], 'store_id': emp_store}
             period_data[att_date_str][emp_code]['timestamps'].append(att_ts)
             
     users_list = []
     for k, v in sorted(MASTER_EMPLOYEES.items(), key=lambda x: get_emp_info(x[0])['name']):
         info = get_emp_info(k)
         code_formatted = f"NWC{k}" if not k.startswith('NWC') else k
-        users_list.append({'user_id': code_formatted, 'name': info['name'], 'dept': info['dept'], 'off': info['off']})
+        
+        # Apply store filter for users list dropdown
+        if filter_store_id and filter_store_id != 'ALL' and info['store_id'] != filter_store_id:
+            continue
+            
+        users_list.append({
+            'user_id': code_formatted, 
+            'name': info['name'], 
+            'dept': info['dept'], 
+            'off': info['off'], 
+            'store_id': info['store_id']
+        })
 
     final_data = []
     total_duration_seconds = 0
@@ -209,8 +241,13 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
         for emp_code, emp_data_val in MASTER_EMPLOYEES.items():
             final_emp_code = f"NWC{emp_code}" if not emp_code.startswith('NWC') else emp_code
             emp_info = get_emp_info(emp_code)
-            emp_name, emp_off, emp_dept, emp_shift = emp_info['name'], emp_info['off'].upper(), emp_info['dept'], emp_info['shift']
+            emp_name, emp_off, emp_dept, emp_shift, emp_store = emp_info['name'], emp_info['off'].upper(), emp_info['dept'], emp_info['shift'], emp_info['store_id']
 
+            # STORE FILTER
+            if filter_store_id and filter_store_id != 'ALL' and emp_store != filter_store_id:
+                continue
+
+            # EMPLOYEE FILTER
             if filter_user_id and filter_user_id != 'ALL' and final_emp_code != filter_user_id and emp_code != filter_user_id:
                 continue
 
@@ -222,7 +259,7 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
             if has_approved_leave:
                 ml_count += 1
                 ml_records.append({
-                    'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
+                    'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept, 'store_id': emp_store,
                     'store_in': 'Approved Leave (F10;1)', 'lunch_out': '-', 'lunch_in': '-', 'out_time': '-',
                     'total_lunch': '-', 'lunch_seconds': 3600, 'net_duration_seconds': 0, 'total_hours': '-', 'net_variance': '-', 'variance_type': 'neutral',
                     'status': 'F10;1 (Reasoned Absent)', 'is_late': 'No', 'shift_type': '-'
@@ -302,7 +339,7 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                     status = 'Weekly Off'
 
                 record = {
-                    'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
+                    'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept, 'store_id': emp_store,
                     'store_in': store_in, 'lunch_out': lunch_out, 'lunch_in': lunch_in,
                     'out_time': out_time, 'total_lunch': total_lunch_str, 'lunch_seconds': lunch_seconds,
                     'net_duration_seconds': net_duration_seconds, 'total_hours': total_hours_str,
@@ -317,7 +354,7 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                 if current_day_name == emp_off:
                     off_count += 1
                     off_records.append({
-                        'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
+                        'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept, 'store_id': emp_store,
                         'store_in': '-', 'lunch_out': '-', 'lunch_in': '-', 'out_time': '-',
                         'total_lunch': '-', 'lunch_seconds': 3600, 'net_duration_seconds': 0, 'total_hours': '-', 'net_variance': '-', 'variance_type': 'neutral',
                         'status': 'Weekly Off', 'is_late': 'No', 'shift_type': '-'
@@ -325,7 +362,7 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                 else:
                     absent_count += 1
                     absent_records.append({
-                        'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
+                        'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept, 'store_id': emp_store,
                         'store_in': '-', 'lunch_out': '-', 'lunch_in': '-', 'out_time': '-',
                         'total_lunch': '-', 'lunch_seconds': 3600, 'net_duration_seconds': 0, 'total_hours': '-', 'net_variance': '-', 'variance_type': 'neutral',
                         'status': 'Absent', 'is_late': 'No', 'shift_type': '-'
@@ -374,7 +411,7 @@ LOGIN_TEMPLATE = """
             <div class="inline-flex bg-[#78b13f] px-5 py-3 rounded-2xl shadow-lg mb-2 items-center justify-center">
                 <img src="{{ url_for('static', filename='fresmart.png') }}" alt="Gamek Fresmart Logo" class="h-12 object-contain">
             </div>
-            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Gamek Fresmart Express</h1>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Gamek Multi-Store Portal</h1>
             <p class="text-xs text-slate-500 font-medium">Developed by Sonu Kumar <span class="text-emerald-600 font-semibold">(NCSA0608)</span></p>
         </div>
 
@@ -396,8 +433,8 @@ LOGIN_TEMPLATE = """
 
         <form method="POST" action="/login" class="space-y-4">
             <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Store/Employee Code</label>
-                <input type="text" name="user_id" required value="" placeholder="NWC1234" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Admin / Store / Employee ID</label>
+                <input type="text" name="user_id" required value="" placeholder="e.g. ADMIN, LM11 or NWC1234" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
             </div>
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Password</label>
@@ -605,7 +642,7 @@ HTML_TEMPLATE = """
                 </div>
                 <div>
                     <h2 class="text-sm font-bold text-slate-900 leading-tight">Gamek HRM</h2>
-                    <p class="text-[10px] text-slate-400 font-medium">Fresmart Express LM11</p>
+                    <p class="text-[10px] text-slate-400 font-medium">Multi-Store Portal</p>
                 </div>
             </div>
 
@@ -661,7 +698,7 @@ HTML_TEMPLATE = """
                     <span>📢</span>
                     <span>Announcements</span>
                 </div>
-                <p class="text-[11px] text-slate-600 leading-tight">Biometric live tracking active for Gamek Fresmart Express LM11.</p>
+                <p class="text-[11px] text-slate-600 leading-tight">Biometric live tracking active for Gamek Multi-Store Portal.</p>
                 <div class="text-[10px] text-emerald-600 font-bold pt-1">Dev: Sonu Kumar (NCSA0608)</div>
             </div>
         </div>
@@ -790,7 +827,27 @@ HTML_TEMPLATE = """
 
             <!-- Filter Controls Bar -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-                <form id="filter-form" method="GET" action="/" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <form id="filter-form" method="GET" action="/" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                    
+                    <!-- ADMIN / DEVELOPER STORE SELECTOR DROPDOWN -->
+                    {% if role in ['admin', 'developer'] %}
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">🏪 Select Store Portal</label>
+                        <select name="store" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            <option value="ALL" {% if selected_store == 'ALL' %}selected{% endif %}>-- All Stores --</option>
+                            {% for store_code, store_name in all_stores.items() %}
+                                <option value="{{ store_code }}" {% if selected_store == store_code %}selected{% endif %}>{{ store_name }} ({{ store_code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% else %}
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">🏪 Store Portal</label>
+                        <input type="hidden" name="store" value="{{ selected_store }}">
+                        <input type="text" disabled value="{{ all_stores.get(selected_store, selected_store) }}" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-emerald-700 cursor-not-allowed">
+                    </div>
+                    {% endif %}
+
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Start Date</label>
                         <input type="date" name="start_date" value="{{ start_date }}" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
@@ -799,7 +856,8 @@ HTML_TEMPLATE = """
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">End Date</label>
                         <input type="date" name="end_date" value="{{ end_date }}" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                     </div>
-                    {% if role == 'admin' or role == 'developer' %}
+
+                    {% if role in ['admin', 'developer', 'store'] %}
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Employee Filter</label>
                         <select name="employee" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
@@ -816,8 +874,9 @@ HTML_TEMPLATE = """
                         <input type="text" disabled value="{{ selected_emp }}" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-emerald-700 cursor-not-allowed">
                     </div>
                     {% endif %}
+
                     <div class="flex space-x-2">
-                        {% if role == 'admin' or role == 'developer' %}
+                        {% if role in ['admin', 'developer', 'store'] %}
                         <button type="button" onclick="openExportModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl text-center shadow-md transition">Export 📥</button>
                         {% endif %}
                         <button type="button" onclick="openCalendarModal()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl text-center shadow-md transition">📅 Rota</button>
@@ -925,7 +984,7 @@ HTML_TEMPLATE = """
     <div id="leave-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-4xl mx-4 space-y-6 max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
-                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">🏖️ Leave Management & Complete History (Never Deleted)</h3>
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">🏖️ Leave Management & Complete History</h3>
                 <button onclick="closeLeaveModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
             
@@ -959,7 +1018,7 @@ HTML_TEMPLATE = """
 
                 <div class="space-y-3">
                     <h4 class="text-sm font-bold text-slate-900 flex items-center justify-between">
-                        <span>{% if role == 'employee' %}My Leave History Archive{% else %}All Employees Leave History Archive (Persistent & Permanent){% endif %}</span>
+                        <span>{% if role == 'employee' %}My Leave History Archive{% else %}All Employees Leave History Archive{% endif %}</span>
                         {% if role in ['admin', 'developer'] and pending_leaves_count > 0 %}
                         <span class="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">{{ pending_leaves_count }} Pending Actions</span>
                         {% endif %}
@@ -1042,7 +1101,7 @@ HTML_TEMPLATE = """
                 <button onclick="closeExportModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
             <div class="space-y-4">
-                <a href="/export?start_date={{ start_date }}&end_date={{ end_date }}&employee={{ selected_emp }}" onclick="closeExportModal()" class="block p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition group">
+                <a href="/export?start_date={{ start_date }}&end_date={{ end_date }}&employee={{ selected_emp }}&store={{ selected_store }}" onclick="closeExportModal()" class="block p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition group">
                     <div class="font-bold text-slate-900 group-hover:text-emerald-700 flex items-center justify-between">
                         <span>Option 1: Standard Row Export</span>
                         <span>📄</span>
@@ -1050,7 +1109,7 @@ HTML_TEMPLATE = """
                     <p class="text-xs text-slate-500 mt-1">Same as current view with individual record rows for each employee per date.</p>
                 </a>
                 
-                <a href="/export_matrix?start_date={{ start_date }}&end_date={{ end_date }}&employee={{ selected_emp }}" onclick="closeExportModal()" class="block p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition group">
+                <a href="/export_matrix?start_date={{ start_date }}&end_date={{ end_date }}&employee={{ selected_emp }}&store={{ selected_store }}" onclick="closeExportModal()" class="block p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition group">
                     <div class="font-bold text-slate-900 group-hover:text-emerald-700 flex items-center justify-between">
                         <span>Option 2: Employee Matrix (F10;1 for Reasoned Absents)</span>
                         <span>📅</span>
@@ -1068,7 +1127,7 @@ HTML_TEMPLATE = """
     <div id="roster-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-4xl mx-4 space-y-6 max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
-                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">👥 Gamek Fresmart Express - Employees Roster</h3>
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">👥 Gamek Employees Roster</h3>
                 <button onclick="closeRosterModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
             <div class="overflow-y-auto flex-1">
@@ -1078,6 +1137,7 @@ HTML_TEMPLATE = """
                             <th class="py-3 px-4 border border-slate-200">Sr.</th>
                             <th class="py-3 px-4 border border-slate-200">ID</th>
                             <th class="py-3 px-4 border border-slate-200">Name</th>
+                            <th class="py-3 px-4 border border-slate-200">Store</th>
                             <th class="py-3 px-4 border border-slate-200">Department</th>
                             <th class="py-3 px-4 border border-slate-200">Weekly Off</th>
                         </tr>
@@ -1088,6 +1148,7 @@ HTML_TEMPLATE = """
                             <td class="py-2.5 px-4 border border-slate-200 text-slate-400 font-medium">{{ loop.index }}</td>
                             <td class="py-2.5 px-4 border border-slate-200 font-mono text-slate-600 font-semibold">{{ emp.user_id }}</td>
                             <td class="py-2.5 px-4 border border-slate-200 font-bold text-slate-900">{{ emp.name }}</td>
+                            <td class="py-2.5 px-4 border border-slate-200 font-mono font-bold text-slate-600">{{ emp.store_id }}</td>
                             <td class="py-2.5 px-4 border border-slate-200"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">{{ emp.dept }}</span></td>
                             <td class="py-2.5 px-4 border border-slate-200 font-bold text-indigo-600">{{ emp.off }}</td>
                         </tr>
@@ -1116,6 +1177,7 @@ HTML_TEMPLATE = """
                             <th class="py-3 px-4 border border-slate-200">Sr.</th>
                             <th class="py-3 px-4 border border-slate-200">ID</th>
                             <th class="py-3 px-4 border border-slate-200">Employee Name</th>
+                            <th class="py-3 px-4 border border-slate-200">Store</th>
                             <th class="py-3 px-4 border border-slate-200">Department</th>
                             <th class="py-3 px-4 text-center border border-slate-200 bg-indigo-50 text-indigo-800">Weekly Off Day</th>
                         </tr>
@@ -1126,6 +1188,7 @@ HTML_TEMPLATE = """
                             <td class="py-2.5 px-4 border border-slate-200 text-slate-400 font-medium">{{ loop.index }}</td>
                             <td class="py-2.5 px-4 border border-slate-200 font-mono text-slate-600 font-semibold">{{ emp.user_id }}</td>
                             <td class="py-2.5 px-4 border border-slate-200 font-bold text-slate-900">{{ emp.name }}</td>
+                            <td class="py-2.5 px-4 border border-slate-200 font-mono font-bold text-slate-600">{{ emp.store_id }}</td>
                             <td class="py-2.5 px-4 border border-slate-200"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">{{ emp.dept }}</span></td>
                             <td class="py-2.5 px-4 border border-slate-200 text-center font-bold text-indigo-700 bg-indigo-50/50 text-sm">{{ emp.off }}</td>
                         </tr>
@@ -1148,26 +1211,42 @@ def login():
         uid = request.form.get('user_id').strip().upper()
         pwd = request.form.get('password').strip()
         
-        if uid == 'LM11' and pwd == 'Gamek@789':
+        # 1. ADMIN LOGIN
+        if uid in ['ADMIN', 'LM11'] and pwd == 'Gamek@789':
             session['logged_in'] = True
             session['role'] = 'admin'
-            session['user_id'] = 'LM11'
-            session['user_name'] = 'Admin (LM11)'
+            session['user_id'] = uid
+            session['user_name'] = 'Admin'
+            session['store_id'] = 'ALL'
             return redirect(url_for('index'))
             
+        # 2. DEVELOPER LOGIN
         if uid == 'NCSA0608' and pwd == 'Shama@8577':
             session['logged_in'] = True
             session['role'] = 'developer'
             session['user_id'] = 'NCSA0608'
             session['user_name'] = 'Sonu Kumar (Developer)'
+            session['store_id'] = 'ALL'
             return redirect(url_for('index'))
-            
+
+        # 3. STORE MANAGER / STORE PORTAL LOGIN (e.g. STORE_LM11, LM12, LM13 with Store Password)
+        if uid in MASTER_STORES and pwd in ['Store@123', '123456', 'Gamek@789']:
+            session['logged_in'] = True
+            session['role'] = 'store'
+            session['user_id'] = uid
+            session['user_name'] = f"Manager ({MASTER_STORES[uid]})"
+            session['store_id'] = uid
+            return redirect(url_for('index'))
+
+        # 4. EMPLOYEE LOGIN
         emp_key = f"NWC{uid}" if not uid.startswith('NWC') else uid
         if emp_key in MASTER_EMPLOYEES and pwd == '123':
+            emp_info = get_emp_info(emp_key)
             session['logged_in'] = True
             session['role'] = 'employee'
             session['user_id'] = emp_key
-            session['user_name'] = MASTER_EMPLOYEES[emp_key]['name']
+            session['user_name'] = emp_info['name']
+            session['store_id'] = emp_info['store_id']
             return redirect(url_for('index'))
         else:
             return render_template_string(LOGIN_TEMPLATE, error="Galat User ID ya Password!")
@@ -1191,7 +1270,15 @@ def index():
     role = session.get('role')
     logged_user_id = session.get('user_id')
     logged_user_name = session.get('user_name')
-    
+    logged_store_id = session.get('store_id', 'ALL')
+
+    # Store Selection Handling based on Role
+    if role in ['admin', 'developer']:
+        selected_store = request.args.get('store', 'ALL')
+    else:
+        selected_store = logged_store_id
+
+    # Employee Selection Handling based on Role
     if role == 'employee':
         selected_emp = logged_user_id
     else:
@@ -1201,7 +1288,7 @@ def index():
     start_date = request.args.get('start_date', today_str)
     end_date = request.args.get('end_date', today_str)
     
-    logs, all_users, g_hrs, g_l_hrs, g_var, raw_punches, stats = fetch_attendance_data(start_date, end_date, selected_emp)
+    logs, all_users, g_hrs, g_l_hrs, g_var, raw_punches, stats = fetch_attendance_data(start_date, end_date, selected_emp, selected_store)
     
     pending_leaves_count = sum(1 for req in LEAVE_REQUESTS if req['status'] == 'Pending')
     
@@ -1214,9 +1301,11 @@ def index():
         HTML_TEMPLATE,
         logs=logs,
         all_users=all_users,
+        all_stores=MASTER_STORES,
         start_date=start_date,
         end_date=end_date,
         selected_emp=selected_emp,
+        selected_store=selected_store,
         grand_total_hours=g_hrs,
         grand_total_lunch_hours=g_l_hrs,
         grand_total_variance=g_var,
@@ -1283,30 +1372,31 @@ def uploaded_file(filename):
 
 @app.route('/export')
 def export_excel():
-    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
+    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer', 'store']:
         return redirect(url_for('login'))
         
     start_date = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
     end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
     selected_emp = request.args.get('employee', 'ALL')
+    selected_store = request.args.get('store', session.get('store_id', 'ALL'))
     
-    logs, _, g_hrs, g_l_hrs, g_var, _, _ = fetch_attendance_data(start_date, end_date, selected_emp)
+    logs, _, g_hrs, g_l_hrs, g_var, _, _ = fetch_attendance_data(start_date, end_date, selected_emp, selected_store)
     
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Attendance Report"
     ws.sheet_view.showGridLines = True
     
-    headers = ["Sr. No.", "Date", "ID", "Employee Name", "Department", "Store In", "Lunch Out", "Lunch In", "Out Time", "Total Lunch", "Working Hours", "Total Hora Extra", "Status"]
+    headers = ["Sr. No.", "Date", "ID", "Employee Name", "Store", "Department", "Store In", "Lunch Out", "Lunch In", "Out Time", "Total Lunch", "Working Hours", "Total Hora Extra", "Status"]
     ws.append([])
-    ws.append(["Gamek Fresmart Express - Attendance Report"])
-    ws.append([f"Period: {start_date} to {end_date}"])
+    ws.append(["Gamek Multi-Store - Attendance Report"])
+    ws.append([f"Period: {start_date} to {end_date} | Store: {selected_store}"])
     ws.append([])
     ws.append(headers)
     
     for idx, log in enumerate(logs, 1):
         ws.append([
-            idx, log['date'], log['user_id'], log['name'], log['dept'],
+            idx, log['date'], log['user_id'], log['name'], log['store_id'], log['dept'],
             log['store_in'], log['lunch_out'], log['lunch_in'], log['out_time'],
             log['total_lunch'], log['total_hours'], log['net_variance'], log['status']
         ])
@@ -1318,16 +1408,17 @@ def export_excel():
     wb.save(excel_io)
     excel_io.seek(0)
     
-    filename = f"Attendance_Report_{start_date}_to_{end_date}.xlsx"
+    filename = f"Attendance_Report_{selected_store}_{start_date}_to_{end_date}.xlsx"
     return send_file(excel_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=filename)
 
 @app.route('/export_matrix')
 def export_matrix():
-    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
+    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer', 'store']:
         return redirect(url_for('login'))
         
     start_date = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
     end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+    selected_store = request.args.get('store', session.get('store_id', 'ALL'))
     
     start_dt = datetime.strptime(start_date, '%Y-%m-%d')
     end_dt = datetime.strptime(end_date, '%Y-%m-%d')
@@ -1342,19 +1433,23 @@ def export_matrix():
     ws.title = "Employee Matrix"
     ws.sheet_view.showGridLines = True
     
-    headers = ["ID", "Employee Name", "Department"] + date_list
-    ws.append(["Gamek Fresmart Express - Employee Matrix Attendance Report"])
-    ws.append([f"Period: {start_date} to {end_date}"])
+    headers = ["ID", "Employee Name", "Store", "Department"] + date_list
+    ws.append(["Gamek Multi-Store - Employee Matrix Attendance Report"])
+    ws.append([f"Period: {start_date} to {end_date} | Store: {selected_store}"])
     ws.append([])
     ws.append(headers)
     
     for emp_code, emp_data in sorted(MASTER_EMPLOYEES.items(), key=lambda x: get_emp_info(x[0])['name']):
         final_code = f"NWC{emp_code}" if not emp_code.startswith('NWC') else emp_code
         emp_info = get_emp_info(emp_code)
-        row = [final_code, emp_info['name'], emp_info['dept']]
+
+        if selected_store != 'ALL' and emp_info['store_id'] != selected_store:
+            continue
+
+        row = [final_code, emp_info['name'], emp_info['store_id'], emp_info['dept']]
         
         for d_str in date_list:
-            logs_d, _, _, _, _, _, _ = fetch_attendance_data(d_str, d_str, final_code)
+            logs_d, _, _, _, _, _, _ = fetch_attendance_data(d_str, d_str, final_code, selected_store)
             if logs_d:
                 status = logs_d[0]['status']
                 if status == 'Present':
@@ -1374,7 +1469,7 @@ def export_matrix():
     excel_io = io.BytesIO()
     wb.save(excel_io)
     excel_io.seek(0)
-    filename = f"Employee_Matrix_{start_date}_to_{end_date}.xlsx"
+    filename = f"Employee_Matrix_{selected_store}_{start_date}_to_{end_date}.xlsx"
     return send_file(excel_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=filename)
 
 @app.route('/shutdown')
