@@ -18,6 +18,10 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 MACHINE_IP = '192.168.1.153' 
 PORT = 4370
 
+# Global storage for synced biometric logs from local python bridge script
+SYNCED_ATTENDANCE_LOGS = []
+LAST_DEVICE_SYNC_TIME = None
+
 MASTER_EMPLOYEES = {
     'NWC2981': {'name': 'ANTONIO JOSE BANDOLA', 'off': 'SUNDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning'},
     'NWC3127': {'name': 'MATEUS ANTONIO DA COSTA BALMIRO', 'off': 'FRIDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning'},
@@ -56,7 +60,6 @@ MASTER_EMPLOYEES = {
     'NWC6444': {'name': 'HENRIQUES BRANDAO', 'off': 'WEDNESDAY', 'dept': 'STOCK', 'shift': 'morning'}
 }
 
-# Leave Requests Permanent Storage (Never Deleted, All History Maintained)
 LEAVE_REQUESTS = []
 
 def get_emp_info(emp_code):
@@ -73,87 +76,111 @@ EMPLOYEE_OVERRIDES = {
 }
 
 def check_device_connectivity():
-    zk = ZK(MACHINE_IP, port=PORT, timeout=2, password=0, force_udp=False, ommit_ping=False)
-    conn = None
     try:
+        zk = ZK(MACHINE_IP, port=PORT, timeout=2, password=0, force_udp=False, ommit_ping=False)
         conn = zk.connect()
         if conn:
+            conn.disconnect()
             return True
     except:
-        return False
-    finally:
-        if conn:
-            try:
-                conn.disconnect()
-            except:
-                pass
+        pass
+    
+    if LAST_DEVICE_SYNC_TIME:
+        time_diff = (datetime.now() - LAST_DEVICE_SYNC_TIME).total_seconds()
+        if time_diff < 300: # Active in last 5 mins
+            return True
+            
     return False
 
 def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
     device_online = check_device_connectivity()
-    zk = ZK(MACHINE_IP, port=PORT, timeout=5, password=0, force_udp=False, ommit_ping=False)
-    conn = None
     period_data = {}
     raw_punches_list = []
     users_map_temp = {}
     
+    for k, v in MASTER_EMPLOYEES.items():
+        info = get_emp_info(k)
+        code_formatted = f"NWC{k}" if not k.startswith('NWC') else k
+        users_map_temp[str(k)] = {'code': code_formatted, 'name': info['name']}
+        
+    for uid_override, over_data in EMPLOYEE_OVERRIDES.items():
+        users_map_temp[str(uid_override)] = {'code': over_data['code'], 'name': over_data['name']}
+
+    attendance_records = []
+    
     try:
+        zk = ZK(MACHINE_IP, port=PORT, timeout=3, password=0, force_udp=False, ommit_ping=False)
         conn = zk.connect()
-        # SAFE SDK CALL: Disabling strict cloud sync exception handling on PyZK wrapper
-        try:
-            conn.disable_device()
-        except:
-            pass
-
-        users = conn.get_users()
-        for user in users:
-            uid_str = str(user.user_id)
-            if uid_str in EMPLOYEE_OVERRIDES:
-                emp_name = EMPLOYEE_OVERRIDES[uid_str]['name']
-                emp_code = EMPLOYEE_OVERRIDES[uid_str]['code']
-            else:
-                info = get_emp_info(uid_str)
-                emp_name = user.name if user.name else info['name']
-                emp_code = f"NWC{uid_str}" if not uid_str.startswith('NWC') else uid_str
-                
-            users_map_temp[uid_str] = {'code': emp_code, 'name': emp_name}
-            
-        attendance = conn.get_attendance()
-        for att in attendance:
-            att_date_str = att.timestamp.strftime('%Y-%m-%d')
-            if start_date_str <= att_date_str <= end_date_str:
-                uid_str = str(att.user_id)
-                user_info = users_map_temp.get(uid_str, {'code': uid_str, 'name': f"Employee {uid_str}"})
-                emp_code = user_info['code']
-                emp_name = user_info['name']
-                
-                if filter_user_id and filter_user_id != 'ALL' and emp_code != filter_user_id and uid_str != filter_user_id:
-                    continue
-                
-                raw_punches_list.append({
-                    'date': att_date_str, 'time': att.timestamp.strftime('%H:%M:%S'),
-                    'user_id': emp_code, 'name': emp_name, 'timestamp': att.timestamp
-                })
-                
-                if att_date_str not in period_data:
-                    period_data[att_date_str] = {}
-                if emp_code not in period_data[att_date_str]:
-                    period_data[att_date_str][emp_code] = {'name': emp_name, 'timestamps': []}
-                period_data[att_date_str][emp_code]['timestamps'].append(att.timestamp)
-                
-        try:
-            conn.enable_device()
-        except:
-            pass
-
-    except Exception as e:
-        print(f"Connection Error: {e}")
-    finally:
         if conn:
-            try:
-                conn.disconnect()
-            except:
-                pass
+            users = conn.get_users()
+            for user in users:
+                uid_str = str(user.user_id)
+                if uid_str in EMPLOYEE_OVERRIDES:
+                    emp_name = EMPLOYEE_OVERRIDES[uid_str]['name']
+                    emp_code = EMPLOYEE_OVERRIDES[uid_str]['code']
+                else:
+                    info = get_emp_info(uid_str)
+                    emp_name = user.name if user.name else info['name']
+                    emp_code = f"NWC{uid_str}" if not uid_str.startswith('NWC') else uid_str
+                users_map_temp[uid_str] = {'code': emp_code, 'name': emp_name}
+                
+            attendance = conn.get_attendance()
+            for att in attendance:
+                attendance_records.append({
+                    'user_id': str(att.user_id),
+                    'timestamp': att.timestamp
+                })
+            conn.disconnect()
+    except Exception as e:
+        print(f"Direct connection to local device failed (cloud fallback active): {e}")
+
+    if not attendance_records and SYNCED_ATTENDANCE_LOGS:
+        for log in SYNCED_ATTENDANCE_LOGS:
+            ts = log['timestamp']
+            if isinstance(ts, str):
+                try:
+                    ts = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    try:
+                        ts = datetime.fromisoformat(ts)
+                    except Exception:
+                        continue
+            attendance_records.append({
+                'user_id': str(log['user_id']),
+                'timestamp': ts
+            })
+
+    for att in attendance_records:
+        att_ts = att['timestamp']
+        att_date_str = att_ts.strftime('%Y-%m-%d')
+        if start_date_str <= att_date_str <= end_date_str:
+            raw_uid = str(att['user_id'])
+            
+            if raw_uid in EMPLOYEE_OVERRIDES:
+                emp_code = EMPLOYEE_OVERRIDES[raw_uid]['code']
+                emp_name = EMPLOYEE_OVERRIDES[raw_uid]['name']
+            elif raw_uid in users_map_temp:
+                emp_code = users_map_temp[raw_uid]['code']
+                emp_name = users_map_temp[raw_uid]['name']
+            else:
+                clean_uid = raw_uid.replace('NWC', '')
+                info = get_emp_info(clean_uid)
+                emp_name = info['name']
+                emp_code = f"NWC{clean_uid}" if not clean_uid.startswith('NWC') else clean_uid
+                
+            if filter_user_id and filter_user_id != 'ALL' and emp_code != filter_user_id and raw_uid != filter_user_id:
+                continue
+            
+            raw_punches_list.append({
+                'date': att_date_str, 'time': att_ts.strftime('%H:%M:%S'),
+                'user_id': emp_code, 'name': emp_name, 'timestamp': att_ts
+            })
+            
+            if att_date_str not in period_data:
+                period_data[att_date_str] = {}
+            if emp_code not in period_data[att_date_str]:
+                period_data[att_date_str][emp_code] = {'name': emp_name, 'timestamps': []}
+            period_data[att_date_str][emp_code]['timestamps'].append(att_ts)
             
     users_list = []
     for k, v in sorted(MASTER_EMPLOYEES.items(), key=lambda x: get_emp_info(x[0])['name']):
@@ -894,7 +921,7 @@ HTML_TEMPLATE = """
         </main>
     </div>
 
-    <!-- Leave Management Modal (Permanent History & Support Document Upload) -->
+    <!-- Leave Management Modal -->
     <div id="leave-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-4xl mx-4 space-y-6 max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
@@ -904,7 +931,6 @@ HTML_TEMPLATE = """
             
             <div class="overflow-y-auto flex-1 space-y-6">
                 {% if role == 'employee' %}
-                <!-- Employee Leave Application Form with Optional File Upload -->
                 <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                     <h4 class="text-sm font-bold text-slate-900">Apply for Absent Reason / Leave Request (Excel Code: F10;1)</h4>
                     <form method="POST" action="/apply_leave" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -931,7 +957,6 @@ HTML_TEMPLATE = """
                 </div>
                 {% endif %}
 
-                <!-- Permanent Leave History Table (Filtered: Employees see only own, Admin sees all) -->
                 <div class="space-y-3">
                     <h4 class="text-sm font-bold text-slate-900 flex items-center justify-between">
                         <span>{% if role == 'employee' %}My Leave History Archive{% else %}All Employees Leave History Archive (Persistent & Permanent){% endif %}</span>
@@ -1101,7 +1126,7 @@ HTML_TEMPLATE = """
                             <td class="py-2.5 px-4 border border-slate-200 text-slate-400 font-medium">{{ loop.index }}</td>
                             <td class="py-2.5 px-4 border border-slate-200 font-mono text-slate-600 font-semibold">{{ emp.user_id }}</td>
                             <td class="py-2.5 px-4 border border-slate-200 font-bold text-slate-900">{{ emp.name }}</td>
-                            <td class="py-2.5 px-4 border border-slate-200"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">{{ cmd.dept if cmd else emp.dept }}</span></td>
+                            <td class="py-2.5 px-4 border border-slate-200"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">{{ emp.dept }}</span></td>
                             <td class="py-2.5 px-4 border border-slate-200 text-center font-bold text-indigo-700 bg-indigo-50/50 text-sm">{{ emp.off }}</td>
                         </tr>
                         {% endfor %}
@@ -1155,7 +1180,7 @@ def logout():
     
     msg_text = "Thank you admin" if role == 'admin' else f"Thank you {user_name}"
     session.clear()
-    flash(msg_text, 'screenshot')
+    flash(msg_text, 'success')
     return redirect(url_for('login'))
 
 @app.route('/')
@@ -1349,36 +1374,43 @@ def export_matrix():
     excel_io = io.BytesIO()
     wb.save(excel_io)
     excel_io.seek(0)
-    filename = `Employee_Matrix_{start_date}_to_{end_date}.xlsx`
+    filename = f"Employee_Matrix_{start_date}_to_{end_date}.xlsx"
     return send_file(excel_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=filename)
 
 @app.route('/shutdown')
 def shutdown():
-    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
-        return redirect(url_for('login'))
-    pwd = request.args.get('pwd')
-    if pwd == "Shama@8577":
-        os._exit(0)
-    return "Unauthorized", 401
+    if session.get('role') in ['admin', 'developer'] and request.args.get('pwd') == 'Shama@8577':
+        func = request.environ.get('werkzeug.server.shutdown')
+        if func:
+            func()
+        return "Server successfully shutdown ho gaya hai."
+    return "Unauthorized access!", 403
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
-@app.route('/shutdown')
-def shutdown():
-    # ... existing shutdown code ...
-    pass
-
+# BIOMETRIC LOCAL SYNC ENDPOINT
 @app.route('/api/attendance/sync', methods=['POST'])
 def sync_attendance():
+    global SYNCED_ATTENDANCE_LOGS, LAST_DEVICE_SYNC_TIME
     try:
         data = request.get_json()
         if not data or 'logs' not in data:
             return {'status': 'error', 'message': 'No logs provided'}, 400
             
         logs = data['logs']
-        print(f"Received {len(logs)} logs from local device.")
-        return {'status': 'success', 'message': f'{len(logs)} records synced successfully'}, 200
+        existing_keys = {(str(item.get('user_id')), str(item.get('timestamp'))) for item in SYNCED_ATTENDANCE_LOGS}
+        
+        added_count = 0
+        for log in logs:
+            key = (str(log.get('user_id')), str(log.get('timestamp')))
+            if key not in existing_keys:
+                SYNCED_ATTENDANCE_LOGS.append(log)
+                existing_keys.add(key)
+                added_count += 1
+                
+        LAST_DEVICE_SYNC_TIME = datetime.now()
+        print(f"Received {len(logs)} logs from local device. {added_count} new records added.")
+        return {'status': 'success', 'message': f'{len(logs)} records synced successfully ({added_count} new)'}, 200
     except Exception as e:
+        print(f"Error in sync_attendance: {e}")
         return {'status': 'error', 'message': str(e)}, 500
 
 if __name__ == '__main__':
