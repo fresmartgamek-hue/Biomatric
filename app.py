@@ -1,12 +1,14 @@
-from flask import Flask, render_template_string, request, Response, send_file, session, redirect, url_for, flash, send_from_directory
-from zk import ZK, const
-from datetime import datetime, time, timedelta
+import base64
 import io
+import math
 import os
+from datetime import datetime, time, timedelta
+from flask import Flask, render_template_string, request, Response, send_file, session, redirect, url_for, flash, send_from_directory
+from github import Github
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-import math
 from werkzeug.utils import secure_filename
+from zk import ZK, const
 
 app = Flask(__name__)
 app.secret_key = 'gamek_fresmart_secret_key_sonu'
@@ -19,8 +21,8 @@ MACHINE_IP = '192.168.1.153'
 PORT = 4370
 
 # GitHub Configurations
-GITHUB_TOKEN = "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"  # Yahan copy kiya hua token dalein
-GITHUB_REPO_NAME = "fresmartgamek-hue/Biometric"             # Aapki repo ka naam
+GITHUB_TOKEN = "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"
+GITHUB_REPO_NAME = "fresmartgamek-hue/Biometric"
 GITHUB_BRANCH = "main"
 
 # Global storage for synced biometric logs from local python bridge script
@@ -79,6 +81,52 @@ EMPLOYEE_OVERRIDES = {
     '8362': {'code': 'NWC8362', 'name': 'ARAUJO PAULOMENDES'},
     '6661': {'code': 'NWC6661', 'name': 'FRANCISCO MUNDELE CHIVELA'}
 }
+
+def upload_file_to_github(file_path, github_destination_path):
+    """Local file ko GitHub repository ke folder me upload karta hai"""
+    try:
+        g = Github(GITHUB_TOKEN)
+        repo = g.get_repo(GITHUB_REPO_NAME)
+        
+        with open(file_path, "rb") as f:
+            content = f.read()
+            
+        try:
+            file = repo.get_contents(github_destination_path, ref=GITHUB_BRANCH)
+            repo.update_file(
+                path=github_destination_path,
+                message=f"Update leave document: {github_destination_path}",
+                content=content,
+                sha=file.sha,
+                branch=GITHUB_BRANCH
+            )
+        except Exception:
+            repo.create_file(
+                path=github_destination_path,
+                message=f"Upload leave document: {github_destination_path}",
+                content=content,
+                branch=GITHUB_BRANCH
+            )
+        return True
+    except Exception as e:
+        print(f"GitHub Upload Error: {e}")
+        return False
+
+def save_leave_to_excel(emp_code, emp_name, start_date, end_date, leave_type, doc_filename):
+    """Excel file me employee ki leave details save karta hai"""
+    excel_file = "leave_records.xlsx"
+    
+    if os.path.exists(excel_file):
+        wb = openpyxl.load_workbook(excel_file)
+        ws = wb.active
+    else:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Leave Records"
+        ws.append(["Employee Code", "Employee Name", "Start Date", "End Date", "Leave Type", "Document Name"])
+        
+    ws.append([emp_code, emp_name, start_date, end_date, leave_type, doc_filename])
+    wb.save(excel_file)
 
 def check_device_connectivity():
     try:
@@ -208,8 +256,8 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
         day_users_dict = period_data.get(date_str, {})
         current_dt = datetime.strptime(date_str, '%Y-%m-%d')
         current_day_name = current_dt.strftime('%A').upper()
-        is_weekend = current_dt.weekday() >= 5 # Saturday (5) or Sunday (6)
-        
+        is_weekend = current_dt.weekday() >= 5
+
         present_records, absent_records, off_records, mispunch_records, ml_records = [], [], [], [], []
 
         for emp_code, emp_data_val in MASTER_EMPLOYEES.items():
@@ -1268,8 +1316,17 @@ def apply_leave():
     file = request.files.get('supporting_doc')
     if file and file.filename != '':
         filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(local_path)
         
+        # 1. GitHub par upload karein (Folder ka naam: leave_documents/)
+        github_path = f"leave_documents/{user_id}_{filename}"
+        upload_file_to_github(local_path, github_path)
+
+    # 2. Excel me record save karein
+    save_leave_to_excel(user_id, name, start_date, end_date, leave_type, filename if filename else "No Document")
+
+    # 3. Global list me bhi add karein (jo aapke portal par dikhta hai)
     leave_req = {
         'id': len(LEAVE_REQUESTS) + 1,
         'user_id': user_id,
@@ -1281,7 +1338,8 @@ def apply_leave():
         'status': 'Pending'
     }
     LEAVE_REQUESTS.append(leave_req)
-    flash('Aapki leave request successfully submit ho gayi hai!', 'success')
+    
+    flash('Aapki leave request successfully submit ho gayi hai aur document GitHub par sync ho gaya hai!', 'success')
     return redirect(url_for('index'))
 
 @app.route('/update_leave/<int:req_id>/<action>')
