@@ -1,7 +1,9 @@
 import base64
 import io
+import json
 import math
 import os
+import sys
 from datetime import datetime, time, timedelta
 from flask import Flask, render_template_string, request, Response, send_file, session, redirect, url_for, flash, send_from_directory
 from github import Github
@@ -11,21 +13,29 @@ from werkzeug.utils import secure_filename
 from zk import ZK, const
 
 app = Flask(__name__)
-app.secret_key = 'gamek_fresmart_secret_key_sonu'
 
-UPLOAD_FOLDER = 'uploads'
+# Secret configurations using Environment Variables with fallbacks
+app.secret_key = os.getenv('SECRET_KEY', 'gamek_fresmart_secret_key_sonu')
+
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-MACHINE_IP = '192.168.1.153' 
-PORT = 4370
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx'}
 
-# GitHub Configurations
-GITHUB_TOKEN = "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"
-GITHUB_REPO_NAME = "fresmartgamek-hue/Biometric"
-GITHUB_BRANCH = "main"
+MACHINE_IP = os.getenv('MACHINE_IP', '192.168.1.153')
+PORT = int(os.getenv('MACHINE_PORT', 4370))
 
-# Global storage for synced biometric logs from local python bridge script
+# GitHub Configurations via Environment Variables
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', 'YOUR_GITHUB_TOKEN')
+GITHUB_REPO_NAME = os.getenv('GITHUB_REPO_NAME', 'fresmartgamek-hue/Biometric')
+GITHUB_BRANCH = os.getenv('GITHUB_BRANCH', 'main')
+
+# Persistent Storage Files
+LEAVE_JSON_FILE = 'leave_requests.json'
+LEAVE_EXCEL_FILE = 'leave_records.xlsx'
+
+# Global storage for synced biometric logs
 SYNCED_ATTENDANCE_LOGS = []
 LAST_DEVICE_SYNC_TIME = None
 
@@ -67,14 +77,6 @@ MASTER_EMPLOYEES = {
     'NWC6444': {'name': 'HENRIQUES BRANDAO', 'off': 'WEDNESDAY', 'dept': 'STOCK', 'shift': 'morning'}
 }
 
-LEAVE_REQUESTS = []
-
-def get_emp_info(emp_code):
-    val = MASTER_EMPLOYEES.get(str(emp_code), {'name': f'Employee {emp_code}', 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning'})
-    if isinstance(val, str):
-        return {'name': val, 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning'}
-    return val
-
 EMPLOYEE_OVERRIDES = {
     '8364': {'code': 'NWC8364', 'name': 'DIELUMBAKA AUGUSTO'},
     '1': {'code': 'NWC8350', 'name': 'LOLIVALDO ALBERTO MADEIRA'},
@@ -82,8 +84,45 @@ EMPLOYEE_OVERRIDES = {
     '6661': {'code': 'NWC6661', 'name': 'FRANCISCO MUNDELE CHIVELA'}
 }
 
+# Helper function to check allowed file extensions
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Persistent JSON storage helpers for leave requests
+def load_leave_requests():
+    if os.path.exists(LEAVE_JSON_FILE):
+        try:
+            with open(LEAVE_JSON_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading {LEAVE_JSON_FILE}: {e}")
+            return []
+    return []
+
+def save_leave_requests(leave_list):
+    try:
+        with open(LEAVE_JSON_FILE, 'w', encoding='utf-8') as f:
+            json.dump(leave_list, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error saving {LEAVE_JSON_FILE}: {e}")
+
+LEAVE_REQUESTS = load_leave_requests()
+
+def get_emp_info(emp_code):
+    emp_str = str(emp_code).strip()
+    if not emp_str.startswith('NWC') and f"NWC{emp_str}" in MASTER_EMPLOYEES:
+        emp_str = f"NWC{emp_str}"
+    
+    val = MASTER_EMPLOYEES.get(emp_str, {'name': f'Employee {emp_code}', 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning'})
+    if isinstance(val, str):
+        return {'name': val, 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning'}
+    return val
+
 def upload_file_to_github(file_path, github_destination_path):
     """Local file ko GitHub repository ke folder me upload karta hai"""
+    if not GITHUB_TOKEN or GITHUB_TOKEN == 'YOUR_GITHUB_TOKEN':
+        print("GitHub token default or missing, skipping GitHub upload.")
+        return False
     try:
         g = Github(GITHUB_TOKEN)
         repo = g.get_repo(GITHUB_REPO_NAME)
@@ -114,10 +153,8 @@ def upload_file_to_github(file_path, github_destination_path):
 
 def save_leave_to_excel(emp_code, emp_name, start_date, end_date, leave_type, doc_filename):
     """Excel file me employee ki leave details save karta hai"""
-    excel_file = "leave_records.xlsx"
-    
-    if os.path.exists(excel_file):
-        wb = openpyxl.load_workbook(excel_file)
+    if os.path.exists(LEAVE_EXCEL_FILE):
+        wb = openpyxl.load_workbook(LEAVE_EXCEL_FILE)
         ws = wb.active
     else:
         wb = openpyxl.Workbook()
@@ -126,7 +163,7 @@ def save_leave_to_excel(emp_code, emp_name, start_date, end_date, leave_type, do
         ws.append(["Employee Code", "Employee Name", "Start Date", "End Date", "Leave Type", "Document Name"])
         
     ws.append([emp_code, emp_name, start_date, end_date, leave_type, doc_filename])
-    wb.save(excel_file)
+    wb.save(LEAVE_EXCEL_FILE)
 
 def check_device_connectivity():
     try:
@@ -135,7 +172,7 @@ def check_device_connectivity():
         if conn:
             conn.disconnect()
             return True
-    except:
+    except Exception:
         pass
     
     if LAST_DEVICE_SYNC_TIME:
@@ -162,7 +199,7 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
     attendance_records = []
     
     try:
-        zk = ZK(MACHINE_IP, port=PORT, timeout=3, password=0, force_udp=False, ommit_ping=False)
+        zk = ZK(MACHINE_IP, port=PORT, timeout=2, password=0, force_udp=False, ommit_ping=False)
         conn = zk.connect()
         if conn:
             users = conn.get_users()
@@ -645,8 +682,7 @@ HTML_TEMPLATE = """
 
         function secureShutdown() {
             let pwd = prompt("Server band karne ke liye password enter karein:");
-            if (pwd === "Shama@8577") window.location.href = "/shutdown?pwd=Shama@8577";
-            else if (pwd !== null) alert("Galat password!");
+            if (pwd) window.location.href = "/shutdown?pwd=" + encodeURIComponent(pwd);
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -1221,14 +1257,17 @@ def login():
         uid = request.form.get('user_id').strip().upper()
         pwd = request.form.get('password').strip()
         
-        if uid == 'LM11' and pwd == 'Gamek@789':
+        admin_pass = os.getenv('ADMIN_PWD', 'Gamek@789')
+        dev_pass = os.getenv('DEV_PWD', 'Shama@8577')
+        
+        if uid == 'LM11' and pwd == admin_pass:
             session['logged_in'] = True
             session['role'] = 'admin'
             session['user_id'] = 'LM11'
             session['user_name'] = 'Admin (LM11)'
             return redirect(url_for('index'))
             
-        if uid == 'NCSA0608' and pwd == 'Shama@8577':
+        if uid == 'NCSA0608' and pwd == dev_pass:
             session['logged_in'] = True
             session['role'] = 'developer'
             session['user_id'] = 'NCSA0608'
@@ -1315,6 +1354,10 @@ def apply_leave():
     filename = None
     file = request.files.get('supporting_doc')
     if file and file.filename != '':
+        if not allowed_file(file.filename):
+            flash('Invalid file format! Sirf PDF, JPG, PNG ya DOC files allowed hain.', 'danger')
+            return redirect(url_for('index'))
+            
         filename = secure_filename(file.filename)
         local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(local_path)
@@ -1326,7 +1369,7 @@ def apply_leave():
     # 2. Excel me record save karein
     save_leave_to_excel(user_id, name, start_date, end_date, leave_type, filename if filename else "No Document")
 
-    # 3. Global list me bhi add karein (jo aapke portal par dikhta hai)
+    # 3. Global list me add karein aur JSON persistence save karein
     leave_req = {
         'id': len(LEAVE_REQUESTS) + 1,
         'user_id': user_id,
@@ -1338,6 +1381,7 @@ def apply_leave():
         'status': 'Pending'
     }
     LEAVE_REQUESTS.append(leave_req)
+    save_leave_requests(LEAVE_REQUESTS)
     
     flash('Aapki leave request successfully submit ho gayi hai aur document GitHub par sync ho gaya hai!', 'success')
     return redirect(url_for('index'))
@@ -1356,6 +1400,8 @@ def update_leave(req_id, action):
                 req['status'] = 'Rejected'
                 flash(f"Leave request for {req['name']} rejected.", 'success')
             break
+            
+    save_leave_requests(LEAVE_REQUESTS)
     return redirect(url_for('index'))
 
 @app.route('/uploads/<filename>')
@@ -1473,11 +1519,15 @@ def export_matrix():
 
 @app.route('/shutdown')
 def shutdown():
-    if session.get('role') in ['admin', 'developer'] and request.args.get('pwd') == 'Shama@8577':
+    dev_pass = os.getenv('DEV_PWD', 'Shama@8577')
+    if session.get('role') in ['admin', 'developer'] and request.args.get('pwd') == dev_pass:
         func = request.environ.get('werkzeug.server.shutdown')
         if func:
             func()
-        return "Server successfully shutdown ho gaya hai."
+            return "Server successfully shutdown ho gaya hai."
+        else:
+            # Modern Werkzeug fallback
+            sys.exit(0)
     return "Unauthorized access!", 403
 
 # BIOMETRIC LOCAL SYNC ENDPOINT
@@ -1508,4 +1558,5 @@ def sync_attendance():
         return {'status': 'error', 'message': str(e)}, 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
