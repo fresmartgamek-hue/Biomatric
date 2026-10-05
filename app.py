@@ -120,7 +120,7 @@ def get_emp_info(emp_code):
 
 def upload_file_to_github(file_path, github_destination_path):
     """Local file ko GitHub repository ke folder me upload karta hai"""
-    if not GITHUB_TOKEN or GITHUB_TOKEN == 'YOUR_GITHUB_TOKEN':
+    if not GITHUB_TOKEN or GITHUB_TOKEN == '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':
         print("GitHub token default or missing, skipping GitHub upload.")
         return False
     try:
