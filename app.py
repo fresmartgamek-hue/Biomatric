@@ -272,7 +272,6 @@ EMPLOYEE_OVERRIDES = {
     '6661': {'code': 'NWC6661', 'name': 'FRANCISCO MUNDELE CHIVELA'},
 }
 
-# Helper functions for persistent custom punches and weekly offs
 def load_json_file(filepath):
   if os.path.exists(filepath):
     try:
@@ -289,8 +288,8 @@ def save_json_file(filepath, data):
   except Exception as e:
     print(f"Error saving {filepath}: {e}")
 
-CUSTOM_PUNCHES = load_json_file(CUSTOM_PUNCHES_FILE) # Format: { "YYYY-MM-DD": { "NWC...": ["HH:MM:SS", ...] } }
-CUSTOM_OFFS = load_json_file(CUSTOM_OFFS_FILE)       # Format: { "YYYY-MM-DD": { "NWC...": "SUNDAY", ... } }
+CUSTOM_PUNCHES = load_json_file(CUSTOM_PUNCHES_FILE)
+CUSTOM_OFFS = load_json_file(CUSTOM_OFFS_FILE)
 
 TRANSLATIONS = {
     'en': {
@@ -596,7 +595,6 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
           continue
       attendance_records.append({'user_id': str(log['user_id']), 'timestamp': ts})
 
-  # Process standard device records
   for att in attendance_records:
     att_ts = att['timestamp']
     att_date_str = att_ts.strftime('%Y-%m-%d')
@@ -622,13 +620,11 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
       if emp_code not in period_data[att_date_str]:
         period_data[att_date_str][emp_code] = {'name': emp_name, 'timestamps': []}
       
-      # Check if custom punch override exists for this date & employee
       if att_date_str in CUSTOM_PUNCHES and emp_code in CUSTOM_PUNCHES[att_date_str]:
-        continue # Custom punches will override below
+        continue
       
       period_data[att_date_str][emp_code]['timestamps'].append(att_ts)
 
-  # Inject Developer custom punches override
   for d_str, emp_dict in CUSTOM_PUNCHES.items():
     if start_date_str <= d_str <= end_date_str:
       for emp_code, times_list in emp_dict.items():
@@ -648,7 +644,6 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
         parsed_times.sort()
         period_data[d_str][emp_code] = {'name': emp_info['name'], 'timestamps': parsed_times}
 
-  # Build raw punches list for UI
   for d_str, emp_dict in period_data.items():
     for emp_code, data_val in emp_dict.items():
       for ts_obj in data_val['timestamps']:
@@ -694,7 +689,6 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
       emp_info = get_emp_info(emp_code)
       emp_name, emp_dept, emp_shift = emp_info['name'], emp_info['dept'], emp_info['shift']
       
-      # Determine weekly off (check custom weekly off override first)
       emp_off = emp_info['off'].upper()
       if date_str in CUSTOM_OFFS and final_emp_code in CUSTOM_OFFS[date_str]:
         emp_off = CUSTOM_OFFS[date_str][final_emp_code].upper()
@@ -770,8 +764,6 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
           hours = divmod(net_duration_seconds, 3600)
           total_hours_str = f'{hours[0]}h {hours[1]//60}m'
 
-          # Standard Duty: 7 hours net work (8 hours with 1h lunch)
-          # Extra Hour Calculation Rule: Extra / Overtime counts only when net work exceeds 7 hours (8 hours with lunch) by at least 45 minutes (45 * 60 seconds).
           target_seconds = 7 * 3600
           diff_from_target = net_duration_seconds - target_seconds
           total_net_variance_seconds += diff_from_target
@@ -783,7 +775,6 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
             code_prefix = 'H07' if is_weekend else 'H06'
             net_variance_str, variance_type = f'{code_prefix};{extra_hours_val}', 'positive'
           elif diff_from_target > 0:
-            # Less than 45 mins extra, so overtime does not count
             net_variance_str, variance_type = '0h 0m', 'neutral'
           elif diff_from_target < 0:
             short_sec = abs(diff_from_target)
@@ -1057,7 +1048,6 @@ HTML_TEMPLATE = """
     </script>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased flex h-screen overflow-hidden">
-    <!-- Sidebar Navigation -->
     <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between hidden lg:flex z-20">
         <div>
             <div class="p-5 flex items-center space-x-3 border-b border-slate-100">
@@ -1103,9 +1093,7 @@ HTML_TEMPLATE = """
         </div>
     </aside>
 
-    <!-- Main Wrapper -->
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
-        <!-- Top Navbar -->
         <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex justify-between items-center z-10">
             <div class="flex items-center space-x-3">
                 <h1 class="text-base font-black text-slate-900 tracking-tight">{{ t('dashboard') }}</h1>
@@ -1137,7 +1125,6 @@ HTML_TEMPLATE = """
             </div>
         </header>
 
-        <!-- Main Content Area -->
         <main class="flex-1 overflow-y-auto p-6 space-y-6">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -1149,7 +1136,6 @@ HTML_TEMPLATE = """
                 {% endif %}
             {% endwith %}
 
-            <!-- Stat Overview -->
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3">
                 <div onclick="filterByStatus('Present')" class="stat-card bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between border-l-4 border-l-emerald-500">
                     <div><p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ t('present') }}</p><h3 class="text-xl font-black text-emerald-600 mt-0.5">{{ stats.present }}</h3></div>
@@ -1189,7 +1175,6 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
-            <!-- Filter Bar -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
                 <form id="filter-form" method="GET" action="/" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div>
@@ -1226,7 +1211,6 @@ HTML_TEMPLATE = """
                 </form>
             </div>
 
-            <!-- Table -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3">
                     <div class="text-xs text-slate-500 font-semibold">💡 {{ t('shift_hint') }}</div>
@@ -1297,7 +1281,6 @@ HTML_TEMPLATE = """
         </main>
     </div>
 
-    <!-- Employee Total Working Hour Modal -->
     <div id="working-hour-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-xl mx-4 space-y-6">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
@@ -1324,7 +1307,6 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
-    <!-- Developer Portal Modal (Punch Edit & Date-wise Weekly Off) -->
     {% if role == 'developer' %}
     <div id="developer-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-3xl mx-4 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -1334,7 +1316,6 @@ HTML_TEMPLATE = """
             </div>
             
             <div class="space-y-6">
-                <!-- Section 1: Edit Punching Hours -->
                 <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                     <h4 class="text-sm font-bold text-slate-900">1. Edit Employee Punching Hours (Reflects Everywhere)</h4>
                     <form method="POST" action="/developer_update_punch" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1361,7 +1342,6 @@ HTML_TEMPLATE = """
                     </form>
                 </div>
 
-                <!-- Section 2: Date-wise Weekly Off Change -->
                 <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                     <h4 class="text-sm font-bold text-slate-900">2. Change Date-wise Weekly Off</h4>
                     <form method="POST" action="/developer_update_off" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1403,7 +1383,6 @@ HTML_TEMPLATE = """
     </div>
     {% endif %}
 
-    <!-- Leave Modal -->
     <div id="leave-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-4xl mx-4 space-y-6 max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
@@ -1474,7 +1453,6 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
-    <!-- Export & Roster & Calendar Modals -->
     <div id="export-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-md mx-4 space-y-6">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4"><h3 class="text-lg font-bold text-slate-900">📊 Export Options</h3><button onclick="closeExportModal()" class="text-slate-400 font-bold text-lg">✕</button></div>
@@ -1516,7 +1494,6 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# Employee Working Hours Summary View Template
 WORKING_HOURS_SUMMARY_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -1580,7 +1557,6 @@ WORKING_HOURS_SUMMARY_TEMPLATE = """
 </html>
 """
 
-
 @app.route('/employee_working_hours')
 def employee_working_hours():
   if not session.get('logged_in'):
@@ -1597,15 +1573,9 @@ def employee_working_hours():
   today_dt = datetime.now()
   today_str = today_dt.strftime('%Y-%m-%d')
   yesterday_str = (today_dt - timedelta(days=1)).strftime('%Y-%m-%d')
-  
-  # This week range (Monday to Sunday)
   start_of_this_week = (today_dt - timedelta(days=today_dt.weekday())).strftime('%Y-%m-%d')
-  
-  # Last week range
   start_of_last_week = (today_dt - timedelta(days=today_dt.weekday() + 7)).strftime('%Y-%m-%d')
   end_of_last_week = (today_dt - timedelta(days=today_dt.weekday() + 1)).strftime('%Y-%m-%d')
-
-  # This month range
   start_of_this_month = today_dt.replace(day=1).strftime('%Y-%m-%d')
 
   def calculate_net_seconds_for_range(start_s, end_s):
@@ -1632,7 +1602,6 @@ def employee_working_hours():
       wh_data=wh_data
   )
 
-
 @app.route('/developer_update_punch', methods=['POST'])
 def developer_update_punch():
   if not session.get('logged_in') or session.get('role') != 'developer':
@@ -1656,7 +1625,6 @@ def developer_update_punch():
   flash(f'Punching hours for {emp_code} on {punch_date} successfully updated and reflected for everyone!', 'success')
   return redirect(url_for('index'))
 
-
 @app.route('/developer_update_off', methods=['POST'])
 def developer_update_off():
   if not session.get('logged_in') or session.get('role') != 'developer':
@@ -1677,7 +1645,6 @@ def developer_update_off():
 
   flash(f'Weekly off for {emp_code} on {off_date} changed to {new_off} successfully!', 'success')
   return redirect(url_for('index'))
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -1716,7 +1683,6 @@ def login():
       return render_template_string(LOGIN_TEMPLATE, error='Galat User ID ya Password!')
   return render_template_string(LOGIN_TEMPLATE, error=None)
 
-
 @app.route('/logout')
 def logout():
   role = session.get('role')
@@ -1725,7 +1691,6 @@ def logout():
   session.clear()
   flash(msg_text, 'success')
   return redirect(url_for('login'))
-
 
 @app.route('/')
 def index():
@@ -1736,171 +1701,186 @@ def index():
   logged_user_id = session.get('user_id')
   logged_user_name = session.get('user_name')
 
+  today_str = datetime.now().strftime('%Y-%m-%d')
+  start_date = request.args.get('start_date', today_str)
+  end_date = request.args.get('end_date', today_str)
+
   if role == 'employee':
     selected_emp = logged_user_id
   else:
     selected_emp = request.args.get('employee', 'ALL')
 
-  today_str = datetime.now().strftime('%Y-%m-%d')
-  start_date = request.args.get('start_date', today_str)
-  end_date = request.args.get('end_date', today_str)
+  logs, users_list, grand_total_hours, grand_total_lunch_hours, grand_total_variance, raw_punches_list, stats = fetch_attendance_data(
+      start_date, end_date, selected_emp
+  )
 
-  logs, all_users, g_hrs, g_l_hrs, g_var, raw_punches, stats = fetch_attendance_data(start_date, end_date, selected_emp)
-  pending_leaves_count = sum(1 for req in LEAVE_REQUESTS if req['status'] == 'Pending')
-
-  if role == 'employee':
-    current_user_leave_requests = [req for req in LEAVE_REQUESTS if req['user_id'] == logged_user_id]
-  else:
-    current_user_leave_requests = LEAVE_REQUESTS
+  pending_leaves_count = sum(1 for l in LEAVE_REQUESTS if l['status'] == 'Pending')
 
   return render_template_string(
       HTML_TEMPLATE,
       logs=logs,
-      all_users=all_users,
+      all_users=users_list,
+      grand_total_hours=grand_total_hours,
+      grand_total_lunch_hours=grand_total_lunch_hours,
+      grand_total_variance=grand_total_variance,
+      stats=stats,
       start_date=start_date,
       end_date=end_date,
       selected_emp=selected_emp,
-      grand_total_hours=g_hrs,
-      grand_total_lunch_hours=g_l_hrs,
-      grand_total_variance=g_var,
-      stats=stats,
-      raw_punches=raw_punches,
       role=role,
       logged_user_name=logged_user_name,
-      leave_requests=current_user_leave_requests,
       pending_leaves_count=pending_leaves_count,
-      t=t,
-      datetime=datetime
+      leave_requests=LEAVE_REQUESTS,
+      raw_punches=raw_punches_list
   )
 
-
-@app.route('/update_leave/<int:req_id>/<action>')
-def update_leave(req_id, action):
+@app.route('/update_leave/<int:leave_id>/<action>')
+def update_leave(leave_id, action):
   if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
     return redirect(url_for('login'))
 
-  for req in LEAVE_REQUESTS:
-    if req['id'] == req_id:
-      req['status'] = 'Approved' if action == 'approve' else 'Rejected'
-      break
-  save_leave_requests(LEAVE_REQUESTS)
-  flash('Leave status updated!', 'success')
+  req = next((l for l in LEAVE_REQUESTS if l['id'] == leave_id), None)
+  if req:
+    if action == 'approve':
+      req['status'] = 'Approved'
+      flash('Leave request approved successfully!', 'success')
+    elif action == 'reject':
+      req['status'] = 'Rejected'
+      flash('Leave request rejected.', 'danger')
+    save_leave_requests(LEAVE_REQUESTS)
   return redirect(url_for('index'))
 
-
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-  if not session.get('logged_in'):
-    return redirect(url_for('login'))
-  return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-
 @app.route('/export')
-def export_excel():
+def export():
   if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
     return redirect(url_for('login'))
 
   start_date = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
   end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
-  selected_emp = request.args.get('employee', 'ALL')
+  employee = request.args.get('employee', 'ALL')
 
-  logs, _, g_hrs, g_l_hrs, g_var, _, _ = fetch_attendance_data(start_date, end_date, selected_emp)
+  logs, _, _, _, _, _, _ = fetch_attendance_data(start_date, end_date, employee)
 
   wb = openpyxl.Workbook()
   ws = wb.active
   ws.title = 'Attendance Report'
-  ws.sheet_view.showGridLines = True
 
-  headers = ['Sr. No.', 'Date', 'ID', 'Employee Name', 'Department', 'Store In', 'Lunch Out', 'Lunch In', 'Out Time', 'Total Lunch', 'Working Hours', 'Total Hora Extra', 'Status']
-  ws.append([])
-  ws.append(['Gamek Fresmart Express - Attendance Report'])
-  ws.append([f'Period: {start_date} to {end_date}'])
-  ws.append([])
+  header_font = Font(name='Inter', size=11, bold=True, color='FFFFFF')
+  header_fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
+  align_center = Alignment(horizontal='center', vertical='center')
+  align_left = Alignment(horizontal='left', vertical='center')
+  thin_border = Border(
+      left=Side(style='thin', color='CBD5E1'), right=Side(style='thin', color='CBD5E1'),
+      top=Side(style='thin', color='CBD5E1'), bottom=Side(style='thin', color='CBD5E1')
+  )
+
+  headers = [
+      'Sr. No.', 'Date', 'Employee ID', 'Employee Name', 'Department',
+      'Store In', 'Lunch Out', 'Lunch In', 'Out Time', 'Total Lunch',
+      'Working Hours', 'Overtime', 'Status'
+  ]
   ws.append(headers)
 
-  for idx, log in enumerate(logs, 1):
-    ws.append([idx, log['date'], log['user_id'], log['name'], log['dept'], log['store_in'], log['lunch_out'], log['lunch_in'], log['out_time'], log['total_lunch'], log['total_hours'], log['net_variance'], log['status']])
+  for col_num in range(1, len(headers) + 1):
+    cell = ws.cell(row=1, column=col_num)
+    cell.font = header_font
+    cell.fill = header_fill
+    cell.alignment = align_center
+    cell.border = thin_border
 
-  ws.append([])
-  ws.append(['', '', '', '', '', '', '', '', 'Total Summary:', g_l_hrs, g_hrs, g_var])
+  for idx, log in enumerate(logs, start=2):
+    row_data = [
+        idx - 1, log['date'], log['user_id'], log['name'], log['dept'],
+        log['store_in'], log['lunch_out'], log['lunch_in'], log['out_time'],
+        log['total_lunch'], log['total_hours'], log['net_variance'], log['status']
+    ]
+    ws.append(row_data)
+    for col_num in range(1, len(row_data) + 1):
+      cell = ws.cell(row=idx, column=col_num)
+      cell.border = thin_border
+      cell.alignment = align_center if col_num in [1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13] else align_left
 
-  excel_io = io.BytesIO()
-  wb.save(excel_io)
-  excel_io.seek(0)
-
-  return send_file(excel_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f'Attendance_Report_{start_date}_to_{end_date}.xlsx')
-
+  export_filename = f'attendance_report_{start_date}_to_{end_date}.xlsx'
+  export_path = os.path.join(app.config['UPLOAD_FOLDER'], export_filename)
+  wb.save(export_path)
+  return send_file(export_path, as_attachment=True)
 
 @app.route('/export_matrix')
 def export_matrix():
   if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
     return redirect(url_for('login'))
 
-  start_date = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
-  end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+  start_date_str = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
+  end_date_str = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+  employee = request.args.get('employee', 'ALL')
 
-  start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-  end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-  date_list = []
-  curr = start_dt
-  while curr <= end_dt:
-    date_list.append(curr.strftime('%Y-%m-%d'))
-    curr += timedelta(days=1)
+  start_dt = datetime.strptime(start_date_str, '%Y-%m-%d')
+  end_dt = datetime.strptime(end_date_str, '%Y-%m-%d')
+  delta_days = (end_dt - start_dt).days
+
+  dates_list = [(start_dt + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(delta_days + 1)]
 
   wb = openpyxl.Workbook()
   ws = wb.active
   ws.title = 'Employee Matrix'
-  ws.sheet_view.showGridLines = True
 
-  headers = ['ID', 'Employee Name', 'Department'] + date_list
-  ws.append(['Gamek Fresmart Express - Employee Matrix Attendance Report'])
-  ws.append([f'Period: {start_date} to {end_date}'])
-  ws.append([])
+  header_font = Font(name='Inter', size=10, bold=True, color='FFFFFF')
+  header_fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
+  align_center = Alignment(horizontal='center', vertical='center')
+  thin_border = Border(
+      left=Side(style='thin', color='CBD5E1'), right=Side(style='thin', color='CBD5E1'),
+      top=Side(style='thin', color='CBD5E1'), bottom=Side(style='thin', color='CBD5E1')
+  )
+
+  headers = ['Emp ID', 'Employee Name', 'Department'] + dates_list
   ws.append(headers)
 
-  for emp_code, emp_data in sorted(MASTER_EMPLOYEES.items(), key=lambda x: get_emp_info(x[0])['name']):
-    final_code = f'NWC{emp_code}' if not emp_code.startswith('NWC') else emp_code
-    emp_info = get_emp_info(emp_code)
-    row = [final_code, emp_info['name'], emp_info['dept']]
+  for col_num in range(1, len(headers) + 1):
+    cell = ws.cell(row=1, column=col_num)
+    cell.font = header_font
+    cell.fill = header_fill
+    cell.alignment = align_center
+    cell.border = thin_border
 
-    for d_str in date_list:
-      logs_d, _, _, _, _, _, _ = fetch_attendance_data(d_str, d_str, final_code)
-      if logs_d:
-        st = logs_d[0]
-        status = st['status']
-        if any(code in status for code in ['F01;1', 'F03;1', 'F05;1', 'F10;1']):
-          row.append('Leave')
-        elif status == 'Weekly Off':
-          row.append('Off')
-        elif status == 'Present':
-          row.append(st['net_variance'])
-        else:
-          row.append(status)
+  users_data = MASTER_EMPLOYEES.items()
+  row_idx = 2
+  for k, v in sorted(users_data, key=lambda x: get_emp_info(x[0])['name']):
+    emp_code = f'NWC{k}' if not k.startswith('NWC') else k
+    if employee != 'ALL' and employee != emp_code:
+      continue
+    emp_info = get_emp_info(k)
+    row_vals = [emp_code, emp_info['name'], emp_info['dept']]
+
+    for d_str in dates_list:
+      logs, _, _, _, _, _, _ = fetch_attendance_data(d_str, d_str, emp_code)
+      if logs:
+        st = logs[0]['status']
+        row_vals.append(st)
       else:
-        row.append('-')
-    ws.append(row)
+        row_vals.append('-')
 
-  excel_io = io.BytesIO()
-  wb.save(excel_io)
-  excel_io.seek(0)
-  return send_file(excel_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f'Employee_Matrix_{start_date}_to_{end_date}.xlsx')
+    ws.append(row_vals)
+    for col_num in range(1, len(row_vals) + 1):
+      cell = ws.cell(row=row_idx, column=col_num)
+      cell.border = thin_border
+      cell.alignment = align_center
+    row_idx += 1
 
+  matrix_filename = f'employee_matrix_{start_date_str}_to_{end_date_str}.xlsx'
+  matrix_path = os.path.join(app.config['UPLOAD_FOLDER'], matrix_filename)
+  wb.save(matrix_path)
+  return send_file(matrix_path, as_attachment=True)
 
 @app.route('/shutdown')
 def shutdown():
   pwd = request.args.get('pwd', '')
-  dev_pass = os.getenv('DEV_PWD', 'Shama@8577')
-  admin_pass = os.getenv('ADMIN_PWD', 'Gamek@789')
-
-  if pwd == dev_pass or pwd == admin_pass:
+  dev_pwd = os.getenv('DEV_PWD', 'Shama@8577')
+  if pwd == dev_pwd:
     func = request.environ.get('werkzeug.server.shutdown')
     if func:
       func()
-    return 'Server shut down successfully.'
-  else:
-    flash('Galat shutdown password!', 'danger')
-    return redirect(url_for('index'))
-
+    return 'Server successfully shutdown ho gaya hai.'
+  return 'Galat password! Server shutdown nahi kiya ja sakta.', 403
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=5000, debug=True)
