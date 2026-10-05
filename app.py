@@ -37,9 +37,9 @@ ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx'}
 MACHINE_IP = os.getenv('MACHINE_IP', '192.168.1.153')
 PORT = int(os.getenv('MACHINE_PORT', 4370))
 
-# GitHub Configurations via Environment Variables
+# GitHub Configurations via Environment Variables (Updated with new token fallback)
 GITHUB_TOKEN = os.getenv(
-    'GITHUB_TOKEN', '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'
+    'GITHUB_TOKEN', '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'
 )
 GITHUB_REPO_NAME = os.getenv('GITHUB_REPO_NAME', 'fresmartgamek-hue/Biometric')
 GITHUB_BRANCH = os.getenv('GITHUB_BRANCH', 'main')
@@ -326,7 +326,7 @@ def get_emp_info(emp_code):
 def upload_file_to_github(file_path, github_destination_path):
   """Local file ko GitHub repository ke folder me upload karta hai"""
   token = os.getenv(
-      'GITHUB_TOKEN', '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'
+      'GITHUB_TOKEN', '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'
   ).strip()
 
   if not token or token == 'YOUR_GITHUB_TOKEN':
