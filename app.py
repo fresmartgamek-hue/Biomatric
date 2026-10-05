@@ -270,6 +270,132 @@ EMPLOYEE_OVERRIDES = {
     '6661': {'code': 'NWC6661', 'name': 'FRANCISCO MUNDELE CHIVELA'},
 }
 
+# Translations Dictionary for English and Portuguese
+TRANSLATIONS = {
+    'en': {
+        'dashboard': 'Dashboard',
+        'projects': 'Projects & Tasks',
+        'calendar': 'Calendar & Rota',
+        'leave_mgmt': 'Leave Management',
+        'settings': 'Settings',
+        'performance': 'Performance',
+        'payroll': 'Payroll & Reports',
+        'roster': 'Employees Roster',
+        'announcements': 'Announcements',
+        'biometric_active': 'Biometric live tracking active for Gamek Fresmart Express LM11.',
+        'good_day': 'Good day',
+        'online': 'Online',
+        'offline': 'Offline',
+        'sync': 'Sync',
+        'logout': 'Logout',
+        'shutdown': 'Shutdown',
+        'present': 'Present',
+        'absent': 'Absent',
+        'medical_leave': 'Medical/Leave',
+        'weekly_off': 'Weekly Off',
+        'late_arrival': 'Late Arrival',
+        'mispunches': 'Mis-Punches',
+        'total_hrs': 'Total Hours',
+        'start_date': 'Start Date',
+        'end_date': 'End Date',
+        'emp_filter': 'Employee Filter',
+        'all_personnel': '-- All Personnel --',
+        'export': 'Export',
+        'shift_hint': 'Shift A = 1st Punch 06:00-10:00 AM | Shift B = 1st Punch after 10:00 AM.',
+        'search_placeholder': '🔍 Search employee name, ID or department...',
+        'sr': 'Sr. No.',
+        'date': 'Date',
+        'id': 'ID',
+        'emp_name': 'Employee Name',
+        'dept': 'Dept',
+        'store_in': 'Store In',
+        'lunch_out': 'Lunch Out',
+        'lunch_in': 'Lunch In',
+        'out_time': 'Out Time',
+        'total_lunch': 'Total Lunch',
+        'working_hours': 'Working Hours',
+        'overtime': 'Total Hora Extra',
+        'status': 'Status',
+        'total_summary': 'Total Summary:',
+        'close': 'Close',
+        'cancel': 'Cancel',
+        'apply_leave': 'Apply for Leave Request',
+        'leave_type': 'Leave Type (Required)',
+        'support_doc': 'Supporting Document Upload (Optional - PDF/Image)',
+        'submit_req': 'Submit Request',
+        'leave_history': 'Leave History Archive',
+        'action': 'Action',
+        'approve': 'Accept',
+        'reject': 'Reject',
+    },
+    'pt': {
+        'dashboard': 'Painel',
+        'projects': 'Projetos e Tarefas',
+        'calendar': 'Calendário e Escala',
+        'leave_mgmt': 'Gestão de Licenças',
+        'settings': 'Definições',
+        'performance': 'Desempenho',
+        'payroll': 'Folha e Relatórios',
+        'roster': 'Lista de Funcionários',
+        'announcements': 'Avisos',
+        'biometric_active': 'Rastreio biométrico ao vivo ativo para Gamek Fresmart Express LM11.',
+        'good_day': 'Bom dia',
+        'online': 'Online',
+        'offline': 'Offline',
+        'sync': 'Sinc',
+        'logout': 'Sair',
+        'shutdown': 'Desligar',
+        'present': 'Presente',
+        'absent': 'Faltou',
+        'medical_leave': 'Baixa/Licença',
+        'weekly_off': 'Folga Semanal',
+        'late_arrival': 'Atrasado',
+        'mispunches': 'Marcação Falhada',
+        'total_hrs': 'Total de Horas',
+        'start_date': 'Data Inicial',
+        'end_date': 'Data Final',
+        'emp_filter': 'Filtro de Funcionários',
+        'all_personnel': '-- Todo o Pessoal --',
+        'export': 'Exportar',
+        'shift_hint': 'Turno A = 1ª Picagem 06:00-10:00 | Turno B = 1ª Picagem após 10:00.',
+        'search_placeholder': '🔍 Pesquisar nome, ID ou departamento...',
+        'sr': 'Nº',
+        'date': 'Data',
+        'id': 'ID',
+        'emp_name': 'Nome do Funcionário',
+        'dept': 'Dept',
+        'store_in': 'Entrada',
+        'lunch_out': 'Saída Almoço',
+        'lunch_in': 'Entrada Almoço',
+        'out_time': 'Saída',
+        'total_lunch': 'Total Almoço',
+        'working_hours': 'Horas de Trabalho',
+        'overtime': 'Total Hora Extra',
+        'status': 'Estado',
+        'total_summary': 'Resumo Total:',
+        'close': 'Fechar',
+        'cancel': 'Cancelar',
+        'apply_leave': 'Solicitar Licença',
+        'leave_type': 'Tipo de Licença (Obrigatório)',
+        'support_doc': 'Documento de Suporte (Opcional - PDF/Imagem)',
+        'submit_req': 'Submeter Pedido',
+        'leave_history': 'Arquivo de Histórico de Licenças',
+        'action': 'Ação',
+        'approve': 'Aceitar',
+        'reject': 'Rejeitar',
+    }
+}
+
+def t(key):
+    lang = session.get('lang', 'pt')
+    return TRANSLATIONS.get(lang, TRANSLATIONS['pt']).get(key, key)
+
+@app.route('/set_language/<lang>')
+def set_language(lang):
+    if lang in ['en', 'pt']:
+        session['lang'] = lang
+    return redirect(request.referrer or url_for('index'))
+
 
 def allowed_file(filename):
   return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -322,7 +448,6 @@ def get_emp_info(emp_code):
 
 
 def upload_file_to_github(file_path, github_destination_path):
-  """Local file ko GitHub repository ke folder me upload karta hai"""
   token = os.getenv(
       'GITHUB_TOKEN', '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'
   ).strip()
@@ -367,7 +492,6 @@ def upload_file_to_github(file_path, github_destination_path):
 def save_leave_to_excel(
     emp_code, emp_name, start_date, end_date, leave_type, doc_filename
 ):
-  """Excel file me employee ki leave details save karta hai"""
   if os.path.exists(LEAVE_EXCEL_FILE):
     wb = openpyxl.load_workbook(LEAVE_EXCEL_FILE)
     ws = wb.active
@@ -415,11 +539,9 @@ def apply_leave():
     local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(local_path)
 
-    # GitHub upload
     github_path = f'leave_documents/{user_id}_{filename}'
     github_success = upload_file_to_github(local_path, github_path)
 
-  # Excel save & GitHub Sync
   save_leave_to_excel(
       user_id,
       name,
@@ -430,7 +552,6 @@ def apply_leave():
   )
   upload_file_to_github(LEAVE_EXCEL_FILE, 'leave_records.xlsx')
 
-  # Global list & JSON save
   leave_req = {
       'id': len(LEAVE_REQUESTS) + 1,
       'user_id': user_id,
@@ -929,6 +1050,10 @@ LOGIN_TEMPLATE = """
 </head>
 <body class="bg-slate-900 min-h-screen flex items-center justify-center p-4">
     <div class="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-200/50 p-8 w-full max-w-md space-y-6">
+        <div class="flex justify-end space-x-2">
+            <a href="/set_language/pt" class="px-2.5 py-1 rounded text-xs font-bold {% if session.get('lang', 'pt') == 'pt' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-700{% endif %}">PT</a>
+            <a href="/set_language/en" class="px-2.5 py-1 rounded text-xs font-bold {% if session.get('lang', 'pt') == 'en' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-700{% endif %}">EN</a>
+        </div>
         <div class="text-center space-y-2">
             <div class="inline-flex bg-[#78b13f] px-5 py-3 rounded-2xl shadow-lg mb-2 items-center justify-center">
                 <img src="{{ url_for('static', filename='fresmart.png') }}" alt="Gamek Fresmart Logo" class="h-12 object-contain">
@@ -1178,20 +1303,20 @@ HTML_TEMPLATE = """
                 <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 mb-2">Main Menu</p>
                 <a href="/" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl bg-slate-900 text-white font-semibold text-xs shadow-sm">
                     <span>📊</span>
-                    <span>Dashboard</span>
+                    <span>{{ t('dashboard') }}</span>
                 </a>
                 <a href="#" onclick="alert('Module under preparation.'); return false;" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
                     <span>📁</span>
-                    <span>Projects & Tasks</span>
+                    <span>{{ t('projects') }}</span>
                 </a>
                 <a href="#" onclick="openCalendarModal(); return false;" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
                     <span>📅</span>
-                    <span>Calendar & Rota</span>
+                    <span>{{ t('calendar') }}</span>
                 </a>
                 <a href="#" onclick="openLeaveModal(); return false;" class="flex items-center justify-between px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
                     <div class="flex items-center space-x-3">
                         <span>🏖️</span>
-                        <span>Leave Management</span>
+                        <span>{{ t('leave_mgmt') }}</span>
                     </div>
                     {% if role in ['admin', 'developer'] and pending_leaves_count > 0 %}
                     <span class="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">{{ pending_leaves_count }}</span>
@@ -1199,21 +1324,21 @@ HTML_TEMPLATE = """
                 </a>
                 <a href="#" onclick="alert('Module under preparation.'); return false;" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
                     <span>⚙️</span>
-                    <span>Settings</span>
+                    <span>{{ t('settings') }}</span>
                 </a>
 
                 <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 mt-6 mb-2">Team Management</p>
                 <a href="#" onclick="filterByStatus('Present'); return false;" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
                     <span>📈</span>
-                    <span>Performance</span>
+                    <span>{{ t('performance') }}</span>
                 </a>
                 <a href="#" onclick="openExportModal(); return false;" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
                     <span>💰</span>
-                    <span>Payroll & Reports</span>
+                    <span>{{ t('payroll') }}</span>
                 </a>
                 <a href="#" onclick="openRosterModal(); return false;" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
                     <span>👥</span>
-                    <span>Employees Roster</span>
+                    <span>{{ t('roster') }}</span>
                 </a>
             </div>
         </div>
@@ -1223,9 +1348,9 @@ HTML_TEMPLATE = """
             <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 space-y-2">
                 <div class="flex items-center space-x-2 text-emerald-800 font-bold text-xs">
                     <span>📢</span>
-                    <span>Announcements</span>
+                    <span>{{ t('announcements') }}</span>
                 </div>
-                <p class="text-[11px] text-slate-600 leading-tight">Biometric live tracking active for Gamek Fresmart Express LM11.</p>
+                <p class="text-[11px] text-slate-600 leading-tight">{{ t('biometric_active') }}</p>
                 <div class="text-[10px] text-emerald-600 font-bold pt-1">Dev: Sonu Kumar (NCSA0608)</div>
             </div>
         </div>
@@ -1237,11 +1362,17 @@ HTML_TEMPLATE = """
         <!-- Top Navbar -->
         <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex justify-between items-center z-10">
             <div class="flex items-center space-x-3">
-                <h1 class="text-base font-black text-slate-900 tracking-tight">Dashboard</h1>
-                <span class="text-xs text-slate-400 font-medium">| Good day, {{ logged_user_name }}</span>
+                <h1 class="text-base font-black text-slate-900 tracking-tight">{{ t('dashboard') }}</h1>
+                <span class="text-xs text-slate-400 font-medium">| {{ t('good_day') }}, {{ logged_user_name }}</span>
             </div>
 
             <div class="flex items-center space-x-3 flex-wrap">
+                <!-- Language Selector -->
+                <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <a href="/set_language/pt" class="px-2 py-1 rounded-lg text-xs font-bold {% if session.get('lang', 'pt') == 'pt' %}bg-emerald-600 text-white shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">PT</a>
+                    <a href="/set_language/en" class="px-2 py-1 rounded-lg text-xs font-bold {% if session.get('lang', 'pt') == 'en' %}bg-emerald-600 text-white shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">EN</a>
+                </div>
+
                 <button onclick="openLeaveModal()" class="relative bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-2 rounded-xl transition border border-emerald-200 flex items-center space-x-1.5">
                     <span>🏖️ Leave Portal</span>
                     {% if role in ['admin', 'developer'] and pending_leaves_count > 0 %}
@@ -1251,21 +1382,21 @@ HTML_TEMPLATE = """
 
                 <div class="text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 flex items-center space-x-2">
                     <span class="h-2 w-2 {% if stats.device_online %}bg-emerald-500{% else %}bg-red-500{% endif %} rounded-full animate-pulse"></span>
-                    <span class="text-slate-600 font-medium">Device: <strong class="{% if stats.device_online %}text-emerald-600{% else %}text-red-600{% endif %}">{% if stats.device_online %}Online{% else %}Offline{% endif %}</strong></span>
+                    <span class="text-slate-600 font-medium">Device: <strong class="{% if stats.device_online %}text-emerald-600{% else %}text-red-600{% endif %}">{% if stats.device_online %}{{ t('online') }}{% else %}{{ t('offline') }}{% endif %}</strong></span>
                     <span class="text-slate-300">|</span>
                     <span id="live-digital-clock" class="text-slate-700 font-semibold"></span>
                     <span class="text-slate-300">|</span>
-                    <span class="text-slate-500">Sync: <strong id="countdown-timer" class="text-emerald-600 font-mono">03:00</strong></span>
+                    <span class="text-slate-500">{{ t('sync') }}: <strong id="countdown-timer" class="text-emerald-600 font-mono">03:00</strong></span>
                 </div>
 
                 <div class="flex items-center space-x-2 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700">
                     <span>👤 {{ logged_user_name }}</span>
-                    <a href="/logout" class="text-rose-600 hover:text-rose-700 ml-2 font-semibold">Logout 🔒</a>
+                    <a href="/logout" class="text-rose-600 hover:text-rose-700 ml-2 font-semibold">{{ t('logout') }} 🔒</a>
                 </div>
 
                 {% if role == 'admin' or role == 'developer' %}
                 <button onclick="secureShutdown()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-3 py-2 rounded-xl transition border border-rose-200">
-                    🛑 Shutdown
+                    🛑 {{ t('shutdown') }}
                 </button>
                 {% endif %}
             </div>
@@ -1289,42 +1420,42 @@ HTML_TEMPLATE = """
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3">
                 <div onclick="filterByStatus('Present')" class="stat-card bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between border-l-4 border-l-emerald-500">
                     <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Present</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ t('present') }}</p>
                         <h3 class="text-xl font-black text-emerald-600 mt-0.5">{{ stats.present }}</h3>
                     </div>
                     <div class="p-2 bg-emerald-50 text-emerald-600 rounded-xl">✅</div>
                 </div>
                 <div onclick="filterByStatus('Absent')" class="stat-card bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between border-l-4 border-l-rose-500">
                     <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Absent</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ t('absent') }}</p>
                         <h3 class="text-xl font-black text-rose-600 mt-0.5">{{ stats.absent }}</h3>
                     </div>
                     <div class="p-2 bg-rose-50 text-rose-600 rounded-xl">❌</div>
                 </div>
                 <div onclick="filterByStatus('ML')" class="stat-card bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between border-l-4 border-l-cyan-500">
                     <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Medical/Leave</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ t('medical_leave') }}</p>
                         <h3 class="text-xl font-black text-cyan-600 mt-0.5">{{ stats.ml }}</h3>
                     </div>
                     <div class="p-2 bg-cyan-50 text-cyan-600 rounded-xl">🏥</div>
                 </div>
                 <div onclick="filterByStatus('Weekly Off')" class="stat-card bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between border-l-4 border-l-slate-400">
                     <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Weekly Off</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ t('weekly_off') }}</p>
                         <h3 class="text-xl font-black text-slate-700 mt-0.5">{{ stats.off }}</h3>
                     </div>
                     <div class="p-2 bg-slate-100 text-slate-600 rounded-xl">🏖️</div>
                 </div>
                 <div onclick="filterByStatus('Late Arrival')" class="stat-card bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between border-l-4 border-l-amber-500">
                     <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Late Arrival</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ t('late_arrival') }}</p>
                         <h3 class="text-xl font-black text-amber-600 mt-0.5">{{ stats.late_arrival }}</h3>
                     </div>
                     <div class="p-2 bg-amber-50 text-amber-600 rounded-xl">⏰</div>
                 </div>
                 <div onclick="filterByStatus('Mis Punch')" class="stat-card bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between border-l-4 border-l-orange-500">
                     <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mis-Punches</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ t('mispunches') }}</p>
                         <h3 class="text-xl font-black text-orange-600 mt-0.5">{{ stats.mispunch }}</h3>
                     </div>
                     <div class="p-2 bg-orange-50 text-orange-600 rounded-xl">⚠</div>
@@ -1345,7 +1476,7 @@ HTML_TEMPLATE = """
                 </div>
                 <div onclick="filterByStatus('ALL')" class="stat-card bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between border-l-4 border-l-emerald-600">
                     <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Hours</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ t('total_hrs') }}</p>
                         <h3 class="text-xl font-black text-emerald-600 mt-0.5">{{ stats.total_hrs }}</h3>
                     </div>
                     <div class="p-2 bg-emerald-50 text-emerald-600 rounded-xl">⏱</div>
@@ -1356,18 +1487,18 @@ HTML_TEMPLATE = """
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
                 <form id="filter-form" method="GET" action="/" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Start Date</label>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{{ t('start_date') }}</label>
                         <input type="date" name="start_date" value="{{ start_date }}" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">End Date</label>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{{ t('end_date') }}</label>
                         <input type="date" name="end_date" value="{{ end_date }}" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                     </div>
                     {% if role == 'admin' or role == 'developer' %}
                     <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Employee Filter</label>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{{ t('emp_filter') }}</label>
                         <select name="employee" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                            <option value="ALL">-- All Personnel --</option>
+                            <option value="ALL">{{ t('all_personnel') }}</option>
                             {% for emp in all_users %}
                                 <option value="{{ emp.user_id }}" {% if selected_emp == emp.user_id %}selected{% endif %}>{{ emp.name }} ({{ emp.user_id }})</option>
                             {% endfor %}
@@ -1382,49 +1513,40 @@ HTML_TEMPLATE = """
                     {% endif %}
                     <div class="flex space-x-2">
                         {% if role == 'admin' or role == 'developer' %}
-                        <button type="button" onclick="openExportModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl text-center shadow-md transition">Export 📥</button>
+                        <button type="button" onclick="openExportModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl text-center shadow-md transition">{{ t('export') }} 📥</button>
                         {% endif %}
                         <button type="button" onclick="openCalendarModal()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl text-center shadow-md transition">📅 Rota</button>
                     </div>
                 </form>
-                
-                <div class="flex items-center space-x-2 mt-4 pt-4 border-t border-slate-100 text-xs flex-wrap gap-y-2">
-                    <span class="text-slate-400 font-bold uppercase tracking-wide mr-1">Quick Range:</span>
-                    <button type="button" onclick="setQuickDate('today')" class="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-lg font-semibold transition">Today</button>
-                    <button type="button" onclick="setQuickDate('yesterday')" class="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-lg font-semibold transition">Yesterday</button>
-                    <button type="button" onclick="setQuickDate('week')" class="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-lg font-semibold transition">This Week</button>
-                    <button type="button" onclick="setQuickDate('month')" class="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-lg font-semibold transition">This Month</button>
-                    <button type="button" onclick="setQuickDate('last_month')" class="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-lg font-semibold transition">Last Month</button>
-                </div>
             </div>
 
             <!-- Attendance Data Table -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3">
                     <div class="text-xs text-slate-500 font-semibold">
-                        💡 Shift A = 1st Punch 06:00-10:00 AM | Shift B = 1st Punch after 10:00 AM.
+                        💡 {{ t('shift_hint') }}
                     </div>
                     <div>
-                        <input type="text" id="table-search-input" onkeyup="filterTableSearch()" placeholder="🔍 Search employee name, ID or department..." class="bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs w-72 shadow-sm focus:outline-none focus:border-emerald-500 font-medium">
+                        <input type="text" id="table-search-input" onkeyup="filterTableSearch()" placeholder="{{ t('search_placeholder') }}" class="bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs w-72 shadow-sm focus:outline-none focus:border-emerald-500 font-medium">
                     </div>
                 </div>
                 <div class="overflow-x-auto">
                     <table id="attendance-table" class="w-full text-left border-collapse excel-table">
                         <thead>
                             <tr class="bg-slate-100 text-slate-600 uppercase text-[11px] font-bold tracking-wider">
-                                <th class="py-3 px-4">Sr. No.</th>
-                                <th class="py-3 px-4 sortable" onclick="sortTable(1)">Date ↕</th>
-                                <th class="py-3 px-4 sortable" onclick="sortTable(2)">ID ↕</th>
-                                <th class="py-3 px-4 sortable" onclick="sortTable(3)">Employee Name ↕</th>
-                                <th class="py-3 px-4 sortable" onclick="sortTable(4)">Dept ↕</th>
-                                <th class="py-3 px-4 sortable" onclick="sortTable(5)">Store In ↕</th>
-                                <th class="py-3 px-4">Lunch Out</th>
-                                <th class="py-3 px-4">Lunch In</th>
-                                <th class="py-3 px-4 sortable" onclick="sortTable(8)">Out Time ↕</th>
-                                <th class="py-3 px-4 sortable" onclick="sortTable(9)">Total Lunch ↕</th>
-                                <th class="py-3 px-4 sortable" onclick="sortTable(10)">Working Hours ↕</th>
-                                <th class="py-3 px-4 sortable" onclick="sortTable(11)">Total Hora Extra ↕</th>
-                                <th class="py-3 px-4 text-center sortable" onclick="sortTable(12)">Status ↕</th>
+                                <th class="py-3 px-4">{{ t('sr') }}</th>
+                                <th class="py-3 px-4 sortable" onclick="sortTable(1)">{{ t('date') }} ↕</th>
+                                <th class="py-3 px-4 sortable" onclick="sortTable(2)">{{ t('id') }} ↕</th>
+                                <th class="py-3 px-4 sortable" onclick="sortTable(3)">{{ t('emp_name') }} ↕</th>
+                                <th class="py-3 px-4 sortable" onclick="sortTable(4)">{{ t('dept') }} ↕</th>
+                                <th class="py-3 px-4 sortable" onclick="sortTable(5)">{{ t('store_in') }} ↕</th>
+                                <th class="py-3 px-4">{{ t('lunch_out') }}</th>
+                                <th class="py-3 px-4">{{ t('lunch_in') }}</th>
+                                <th class="py-3 px-4 sortable" onclick="sortTable(8)">{{ t('out_time') }} ↕</th>
+                                <th class="py-3 px-4 sortable" onclick="sortTable(9)">{{ t('total_lunch') }} ↕</th>
+                                <th class="py-3 px-4 sortable" onclick="sortTable(10)">{{ t('working_hours') }} ↕</th>
+                                <th class="py-3 px-4 sortable" onclick="sortTable(11)">{{ t('overtime') }} ↕</th>
+                                <th class="py-3 px-4 text-center sortable" onclick="sortTable(12)">{{ t('status') }} ↕</th>
                             </tr>
                         </thead>
                         <tbody class="text-sm text-slate-700 divide-y divide-slate-100">
@@ -1455,25 +1577,21 @@ HTML_TEMPLATE = """
                                             <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">Weekly Off</span>
                                         {% elif log.status == 'Absent' %}
                                             <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200">Absent</span>
-                                        {% elif 'F01;1' in log.status or 'F05;1' in log.status or 'F10;1' in log.status or 'F51;1' in log.status or 'F60;1' in log.status or 'F61;1' in log.status or 'F62;1' in log.status %}
-                                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">{{ log.status }}</span>
-                                        {% elif log.status == 'ML' %}
-                                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">Medical/Leave</span>
                                         {% elif log.status == 'Present' %}
                                             <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Present</span>
-                                        {% elif log.status == 'Mis Punch' %}
-                                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">Mis Punch</span>
+                                        {% else %}
+                                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">{{ log.status }}</span>
                                         {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
-                                <tr><td colspan="13" class="text-center py-16 text-slate-400 font-medium">No attendance records found for this selection.</td></tr>
+                                <tr><td colspan="13" class="text-center py-16 text-slate-400 font-medium">No records found.</td></tr>
                             {% endif %}
                         </tbody>
                         <tfoot class="bg-slate-100 font-bold text-slate-900 text-sm border-t border-slate-200">
                             <tr>
-                                <td colspan="9" class="py-4 px-4 text-right uppercase text-xs tracking-wider text-slate-500">Total Summary:</td>
+                                <td colspan="9" class="py-4 px-4 text-right uppercase text-xs tracking-wider text-slate-500">{{ t('total_summary') }}</td>
                                 <td class="py-4 px-4 text-emerald-700 font-mono">{{ grand_total_lunch_hours }}</td>
                                 <td class="py-4 px-4 text-slate-900 font-mono">{{ grand_total_hours }}</td>
                                 <td class="py-4 px-4 font-mono {% if stats.variance_type == 'positive' %}text-emerald-700{% else %}text-rose-700{% endif %}" colspan="2">{{ grand_total_variance }}</td>
@@ -1489,25 +1607,25 @@ HTML_TEMPLATE = """
     <div id="leave-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-4xl mx-4 space-y-6 max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
-                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">🏖️ Leave Management & Complete History (Never Deleted)</h3>
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">🏖️ {{ t('leave_mgmt') }}</h3>
                 <button onclick="closeLeaveModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
             
             <div class="overflow-y-auto flex-1 space-y-6">
                 {% if role == 'employee' %}
                 <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
-                    <h4 class="text-sm font-bold text-slate-900">Apply for Leave Request</h4>
+                    <h4 class="text-sm font-bold text-slate-900">{{ t('apply_leave') }}</h4>
                     <form method="POST" action="/apply_leave" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Start Date</label>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{{ t('start_date') }}</label>
                             <input type="date" name="start_date" required class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">End Date</label>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{{ t('end_date') }}</label>
                             <input type="date" name="end_date" required class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Leave Type (Required)</label>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{{ t('leave_type') }}</label>
                             <select name="leave_type" required class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                                 <option value="F01;1">F01;1 - Baixa Médica</option>
                                 <option value="F03;1">F03;1 - Falta Injustificada</option>
@@ -1520,11 +1638,11 @@ HTML_TEMPLATE = """
                             </select>
                         </div>
                         <div class="sm:col-span-3">
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Supporting Document Upload (Optional - PDF/Image)</label>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{{ t('support_doc') }}</label>
                             <input type="file" name="supporting_doc" accept=".pdf,image/*" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
                         </div>
                         <div class="sm:col-span-3 flex justify-end">
-                            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl shadow transition">Submit Request 🚀</button>
+                            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl shadow transition">{{ t('submit_req') }} 🚀</button>
                         </div>
                     </form>
                 </div>
@@ -1532,22 +1650,19 @@ HTML_TEMPLATE = """
 
                 <div class="space-y-3">
                     <h4 class="text-sm font-bold text-slate-900 flex items-center justify-between">
-                        <span>{% if role == 'employee' %}My Leave History Archive{% else %}All Employees Leave History Archive (Persistent & Permanent){% endif %}</span>
-                        {% if role in ['admin', 'developer'] and pending_leaves_count > 0 %}
-                        <span class="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">{{ pending_leaves_count }} Pending Actions</span>
-                        {% endif %}
+                        <span>{{ t('leave_history') }}</span>
                     </h4>
                     <div class="border border-slate-200 rounded-xl overflow-hidden">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-100 text-slate-600 uppercase text-[10px] font-bold tracking-wider">
-                                    <th class="py-2.5 px-3 border-b border-slate-200">ID & Name</th>
-                                    <th class="py-2.5 px-3 border-b border-slate-200">From - To Dates</th>
-                                    <th class="py-2.5 px-3 border-b border-slate-200">Leave Type</th>
-                                    <th class="py-2.5 px-3 border-b border-slate-200">Support Document</th>
-                                    <th class="py-2.5 px-3 border-b border-slate-200 text-center">Status</th>
+                                    <th class="py-2.5 px-3 border-b border-slate-200">{{ t('emp_name') }}</th>
+                                    <th class="py-2.5 px-3 border-b border-slate-200">Dates</th>
+                                    <th class="py-2.5 px-3 border-b border-slate-200">Type</th>
+                                    <th class="py-2.5 px-3 border-b border-slate-200">Document</th>
+                                    <th class="py-2.5 px-3 border-b border-slate-200 text-center">{{ t('status') }}</th>
                                     {% if role in ['admin', 'developer'] %}
-                                    <th class="py-2.5 px-3 border-b border-slate-200 text-center">Action</th>
+                                    <th class="py-2.5 px-3 border-b border-slate-200 text-center">{{ t('action') }}</th>
                                     {% endif %}
                                 </tr>
                             </thead>
@@ -1564,37 +1679,31 @@ HTML_TEMPLATE = """
                                         <td class="py-2.5 px-3 text-slate-600">
                                             {% if req.filename %}
                                             <a href="/uploads/{{ req.filename }}" target="_blank" class="inline-flex items-center space-x-1 mt-1 text-[11px] text-emerald-600 hover:text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 transition">
-                                                <span>📎 View Document</span>
+                                                <span>📎 View</span>
                                             </a>
                                             {% else %}
-                                            <span class="text-[10px] text-slate-400 italic">No attachment</span>
+                                            <span class="text-[10px] text-slate-400 italic">-</span>
                                             {% endif %}
                                         </td>
                                         <td class="py-2.5 px-3 text-center">
-                                            {% if req.status == 'Approved' %}
-                                                <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px]">Approved ({{ req.leave_type }}) ✅</span>
-                                            {% elif req.status == 'Rejected' %}
-                                                <span class="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-bold text-[10px]">Rejected ❌</span>
-                                            {% else %}
-                                                <span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-bold text-[10px] animate-pulse">Pending ⏳</span>
-                                            {% endif %}
+                                            <span class="px-2.5 py-1 rounded-full {% if req.status == 'Approved' %}bg-emerald-50 text-emerald-700{% elif req.status == 'Rejected' %}bg-rose-50 text-rose-700{% else %}bg-amber-50 text-amber-700{% endif %} font-bold text-[10px]">{{ req.status }}</span>
                                         </td>
                                         {% if role in ['admin', 'developer'] %}
                                         <td class="py-2.5 px-3 text-center">
                                             {% if req.status == 'Pending' %}
                                             <div class="flex items-center justify-center space-x-1.5">
-                                                <a href="/update_leave/{{ req.id }}/approve" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-[10px] transition">Accept</a>
-                                                <a href="/update_leave/{{ req.id }}/reject" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-2.5 py-1 rounded-lg text-[10px] transition">Reject</a>
+                                                <a href="/update_leave/{{ req.id }}/approve" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-[10px] transition">{{ t('approve') }}</a>
+                                                <a href="/update_leave/{{ req.id }}/reject" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-2.5 py-1 rounded-lg text-[10px] transition">{{ t('reject') }}</a>
                                             </div>
                                             {% else %}
-                                            <span class="text-slate-400 text-[10px] italic">Processed</span>
+                                            <span class="text-slate-400 text-[10px] italic">-</span>
                                             {% endif %}
                                         </td>
                                         {% endif %}
                                     </tr>
                                     {% endfor %}
                                 {% else %}
-                                    <tr><td colspan="6" class="text-center py-8 text-slate-400">No leave history records found.</td></tr>
+                                    <tr><td colspan="6" class="text-center py-8 text-slate-400">No records found.</td></tr>
                                 {% endif %}
                             </tbody>
                         </table>
@@ -1603,7 +1712,7 @@ HTML_TEMPLATE = """
             </div>
 
             <div class="pt-2 flex justify-end">
-                <button onclick="closeLeaveModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">Close</button>
+                <button onclick="closeLeaveModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">{{ t('close') }}</button>
             </div>
         </div>
     </div>
@@ -1612,7 +1721,7 @@ HTML_TEMPLATE = """
     <div id="export-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-md mx-4 space-y-6">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
-                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">📊 Choose Excel Export Format</h3>
+                <h3 class="text-lg font-bold text-slate-900">📊 Export Options</h3>
                 <button onclick="closeExportModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
             <div class="space-y-4">
@@ -1621,19 +1730,16 @@ HTML_TEMPLATE = """
                         <span>Option 1: Standard Row Export</span>
                         <span>📄</span>
                     </div>
-                    <p class="text-xs text-slate-500 mt-1">Same as current view with individual record rows for each employee per date.</p>
                 </a>
-                
                 <a href="/export_matrix?start_date={{ start_date }}&end_date={{ end_date }}&employee={{ selected_emp }}" onclick="closeExportModal()" class="block p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition group">
                     <div class="font-bold text-slate-900 group-hover:text-emerald-700 flex items-center justify-between">
                         <span>Option 2: Employee Matrix (Leave Codes)</span>
                         <span>📅</span>
                     </div>
-                    <p class="text-xs text-slate-500 mt-1">Employees in rows, Dates in columns. Specific codes (F01;1, F10;1, H06, H07, Off) for attendance statuses.</p>
                 </a>
             </div>
             <div class="pt-2 flex justify-end">
-                <button onclick="closeExportModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">Cancel</button>
+                <button onclick="closeExportModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">{{ t('cancel') }}</button>
             </div>
         </div>
     </div>
@@ -1642,7 +1748,7 @@ HTML_TEMPLATE = """
     <div id="roster-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-4xl mx-4 space-y-6 max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
-                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">👥 Gamek Fresmart Express - Employees Roster</h3>
+                <h3 class="text-lg font-bold text-slate-900">👥 Roster</h3>
                 <button onclick="closeRosterModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
             <div class="overflow-y-auto flex-1">
@@ -1670,7 +1776,7 @@ HTML_TEMPLATE = """
                 </table>
             </div>
             <div class="pt-2 flex justify-end">
-                <button onclick="closeRosterModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">Close</button>
+                <button onclick="closeRosterModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">{{ t('close') }}</button>
             </div>
         </div>
     </div>
@@ -1679,11 +1785,10 @@ HTML_TEMPLATE = """
     <div id="calendar-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-5xl mx-4 space-y-6 max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
-                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">📅 All Employees Weekly Off Rota Calendar</h3>
+                <h3 class="text-lg font-bold text-slate-900">📅 Calendar & Rota</h3>
                 <button onclick="closeCalendarModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
             </div>
             <div class="overflow-y-auto flex-1">
-                <p class="text-xs text-slate-500 mb-3">Yahan sabhi employees ke designated Weekly Off days ki complete list di gayi hai:</p>
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-slate-100 text-slate-600 uppercase text-[11px] font-bold tracking-wider">
@@ -1708,7 +1813,7 @@ HTML_TEMPLATE = """
                 </table>
             </div>
             <div class="pt-2 flex justify-end">
-                <button onclick="closeCalendarModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">Close</button>
+                <button onclick="closeCalendarModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">{{ t('close') }}</button>
             </div>
         </div>
     </div>
@@ -1731,6 +1836,7 @@ def login():
       session['role'] = 'admin'
       session['user_id'] = 'LM11'
       session['user_name'] = 'Admin (LM11)'
+      session.setdefault('lang', 'pt')
       return redirect(url_for('index'))
 
     if uid == 'NCSA0608' and pwd == dev_pass:
@@ -1738,6 +1844,7 @@ def login():
       session['role'] = 'developer'
       session['user_id'] = 'NCSA0608'
       session['user_name'] = 'Sonu Kumar (Developer)'
+      session.setdefault('lang', 'pt')
       return redirect(url_for('index'))
 
     emp_key = f'NWC{uid}' if not uid.startswith('NWC') else uid
@@ -1746,6 +1853,7 @@ def login():
       session['role'] = 'employee'
       session['user_id'] = emp_key
       session['user_name'] = MASTER_EMPLOYEES[emp_key]['name']
+      session.setdefault('lang', 'pt')
       return redirect(url_for('index'))
     else:
       return render_template_string(
@@ -1814,6 +1922,7 @@ def index():
       logged_user_name=logged_user_name,
       leave_requests=current_user_leave_requests,
       pending_leaves_count=pending_leaves_count,
+      t=t,
   )
 
 
@@ -2064,7 +2173,6 @@ def shutdown():
   return 'Unauthorized access!', 403
 
 
-# BIOMETRIC LOCAL SYNC ENDPOINT
 @app.route('/api/attendance/sync', methods=['POST'])
 def sync_attendance():
   global SYNCED_ATTENDANCE_LOGS, LAST_DEVICE_SYNC_TIME
