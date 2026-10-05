@@ -214,18 +214,19 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
             if filter_user_id and filter_user_id != 'ALL' and final_emp_code != filter_user_id and emp_code != filter_user_id:
                 continue
 
-            has_approved_leave = any(
-                l['user_id'] == final_emp_code and l['status'] == 'Approved' and l['start_date'] <= date_str <= l['end_date']
-                for l in LEAVE_REQUESTS
+            approved_leave_obj = next(
+                (l for l in LEAVE_REQUESTS if l['user_id'] == final_emp_code and l['status'] == 'Approved' and l['start_date'] <= date_str <= l['end_date']),
+                None
             )
 
-            if has_approved_leave:
+            if approved_leave_obj:
                 ml_count += 1
+                leave_type_code = approved_leave_obj.get('leave_type', 'F10;1')
                 ml_records.append({
                     'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
-                    'store_in': 'Approved Leave (F10;1)', 'lunch_out': '-', 'lunch_in': '-', 'out_time': '-',
+                    'store_in': f'Approved Leave ({leave_type_code})', 'lunch_out': '-', 'lunch_in': '-', 'out_time': '-',
                     'total_lunch': '-', 'lunch_seconds': 3600, 'net_duration_seconds': 0, 'total_hours': '-', 'net_variance': '-', 'variance_type': 'neutral',
-                    'status': 'F10;1 (Reasoned Absent)', 'is_late': 'No', 'shift_type': '-'
+                    'status': f'{leave_type_code} (Reasoned Absent)', 'is_late': 'No', 'shift_type': '-'
                 })
                 continue
 
@@ -502,6 +503,12 @@ HTML_TEMPLATE = """
                     trs[i].style.display = (trs[i].getAttribute('data-late') === 'Yes') ? "" : "none";
                 } else if (statusVal === 'Shift A' || statusVal === 'Shift B') {
                     trs[i].style.display = (trs[i].getAttribute('data-shift') === statusVal) ? "" : "none";
+                } else if (statusVal === 'ML') {
+                    let statusCell = trs[i].getElementsByTagName('td')[12];
+                    if (statusCell) {
+                        let text = statusCell.textContent || statusCell.innerText;
+                        trs[i].style.display = (text.includes('F01;1') || text.includes('F05;1') || text.includes('F10;1') || text.includes('F51;1') || text.includes('F60;1') || text.includes('F61;1') || text.includes('F62;1') || text.includes('Medical/Leave')) ? "" : "none";
+                    }
                 } else {
                     let statusCell = trs[i].getElementsByTagName('td')[12];
                     if (statusCell) {
@@ -891,8 +898,8 @@ HTML_TEMPLATE = """
                                             <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">Weekly Off</span>
                                         {% elif log.status == 'Absent' %}
                                             <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200">Absent</span>
-                                        {% elif log.status == 'F10;1 (Reasoned Absent)' %}
-                                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">F10;1 (Reasoned Absent)</span>
+                                        {% elif 'F01;1' in log.status or 'F05;1' in log.status or 'F10;1' in log.status or 'F51;1' in log.status or 'F60;1' in log.status or 'F61;1' in log.status or 'F62;1' in log.status %}
+                                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">{{ log.status }}</span>
                                         {% elif log.status == 'ML' %}
                                             <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">Medical/Leave</span>
                                         {% elif log.status == 'Present' %}
@@ -932,7 +939,7 @@ HTML_TEMPLATE = """
             <div class="overflow-y-auto flex-1 space-y-6">
                 {% if role == 'employee' %}
                 <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
-                    <h4 class="text-sm font-bold text-slate-900">Apply for Absent Reason / Leave Request (Excel Code: F10;1)</h4>
+                    <h4 class="text-sm font-bold text-slate-900">Apply for Absent Reason / Leave Request</h4>
                     <form method="POST" action="/apply_leave" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Start Date</label>
@@ -941,6 +948,19 @@ HTML_TEMPLATE = """
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">End Date</label>
                             <input type="date" name="end_date" required class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Leave Type (Option)</label>
+                            <select name="leave_type" required class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="F01;1">F01;1 - Baixa Médica</option>
+                                <option value="F03;1">F03;1 - Falta Injustificada</option>
+                                <option value="F05;1">F05;1 - Licença sem vencimento</option>
+                                <option value="F10;1" selected>F10;1 - Falta Justificada</option>
+                                <option value="F51;1">F51;1 - Casamento</option>
+                                <option value="F60;1">F60;1 - Nascimento</option>
+                                <option value="F61;1">F61;1 - Obito</option>
+                                <option value="F62;1">F62;1 - Gravidez</option>
+                            </select>
                         </div>
                         <div class="sm:col-span-3">
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Reason for Absent / Leave</label>
@@ -970,6 +990,7 @@ HTML_TEMPLATE = """
                                 <tr class="bg-slate-100 text-slate-600 uppercase text-[10px] font-bold tracking-wider">
                                     <th class="py-2.5 px-3 border-b border-slate-200">ID & Name</th>
                                     <th class="py-2.5 px-3 border-b border-slate-200">From - To Dates</th>
+                                    <th class="py-2.5 px-3 border-b border-slate-200">Leave Type</th>
                                     <th class="py-2.5 px-3 border-b border-slate-200">Reason & Support Document</th>
                                     <th class="py-2.5 px-3 border-b border-slate-200 text-center">Status</th>
                                     {% if role in ['admin', 'developer'] %}
@@ -986,6 +1007,7 @@ HTML_TEMPLATE = """
                                             <div class="text-[10px] text-slate-400 font-mono">{{ req.user_id }}</div>
                                         </td>
                                         <td class="py-2.5 px-3 font-mono text-[11px]">{{ req.start_date }} to {{ req.end_date }}</td>
+                                        <td class="py-2.5 px-3 font-bold text-cyan-700">{{ req.leave_type }}</td>
                                         <td class="py-2.5 px-3 text-slate-600">
                                             <div>{{ req.reason }}</div>
                                             {% if req.filename %}
@@ -998,7 +1020,7 @@ HTML_TEMPLATE = """
                                         </td>
                                         <td class="py-2.5 px-3 text-center">
                                             {% if req.status == 'Approved' %}
-                                                <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px]">Approved (F10;1) ✅</span>
+                                                <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px]">Approved ({{ req.leave_type }}) ✅</span>
                                             {% elif req.status == 'Rejected' %}
                                                 <span class="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-bold text-[10px]">Rejected ❌</span>
                                             {% else %}
@@ -1020,7 +1042,7 @@ HTML_TEMPLATE = """
                                     </tr>
                                     {% endfor %}
                                 {% else %}
-                                    <tr><td colspan="5" class="text-center py-8 text-slate-400">No leave history records found.</td></tr>
+                                    <tr><td colspan="6" class="text-center py-8 text-slate-400">No leave history records found.</td></tr>
                                 {% endif %}
                             </tbody>
                         </table>
@@ -1052,10 +1074,10 @@ HTML_TEMPLATE = """
                 
                 <a href="/export_matrix?start_date={{ start_date }}&end_date={{ end_date }}&employee={{ selected_emp }}" onclick="closeExportModal()" class="block p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition group">
                     <div class="font-bold text-slate-900 group-hover:text-emerald-700 flex items-center justify-between">
-                        <span>Option 2: Employee Matrix (F10;1 for Reasoned Absents)</span>
+                        <span>Option 2: Employee Matrix (Leave Codes)</span>
                         <span>📅</span>
                     </div>
-                    <p class="text-xs text-slate-500 mt-1">Employees in rows, Dates in columns. F10;1 for approved reasoned absences, F03;1 for unapproved absents.</p>
+                    <p class="text-xs text-slate-500 mt-1">Employees in rows, Dates in columns. Specific codes (F01;1, F10;1, etc.) for approved absences and F03;1 for unapproved absents.</p>
                 </a>
             </div>
             <div class="pt-2 flex justify-end">
@@ -1237,6 +1259,7 @@ def apply_leave():
     name = session.get('user_name')
     start_date = request.form.get('start_date')
     end_date = request.form.get('end_date')
+    leave_type = request.form.get('leave_type', 'F10;1')
     reason = request.form.get('reason')
     
     filename = None
@@ -1251,6 +1274,7 @@ def apply_leave():
         'name': name,
         'start_date': start_date,
         'end_date': end_date,
+        'leave_type': leave_type,
         'reason': reason,
         'filename': filename,
         'status': 'Pending'
@@ -1361,8 +1385,10 @@ def export_matrix():
                     row.append('Present')
                 elif status == 'Weekly Off':
                     row.append('Off')
-                elif 'F10;1' in status:
-                    row.append('F10;1')
+                elif any(code in status for code in ['F01;1', 'F05;1', 'F10;1', 'F51;1', 'F60;1', 'F61;1', 'F62;1']):
+                    # Extract the matching leave code
+                    matched_code = next((code for code in ['F01;1', 'F05;1', 'F10;1', 'F51;1', 'F60;1', 'F61;1', 'F62;1'] if code in status), 'F10;1')
+                    row.append(matched_code)
                 elif status == 'Mis Punch':
                     row.append('Mis Punch')
                 else:
