@@ -290,7 +290,7 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                     
                     if diff_from_target > 0:
                         e_hrs = divmod(diff_from_target, 3600)
-                        extra_hours_val = e_hrs[0] + (1 if e_hrs[1] > 0 else 0) # rounded extra hours or exact
+                        extra_hours_val = e_hrs[0] + (1 if e_hrs[1] > 0 else 0)
                         code_prefix = 'H07' if is_weekend else 'H06'
                         net_variance_str, variance_type = f"{code_prefix};{extra_hours_val}", 'positive'
                     elif diff_from_target < 0:
@@ -1379,14 +1379,12 @@ def export_matrix():
                 st = logs_d[0]
                 status = st['status']
                 
-                # Check for approved leaves
                 if any(code in status for code in ['F01;1', 'F03;1', 'F05;1', 'F10;1', 'F51;1', 'F60;1', 'F61;1', 'F62;1']):
                     matched_code = next((code for code in ['F01;1', 'F03;1', 'F05;1', 'F10;1', 'F51;1', 'F60;1', 'F61;1', 'F62;1'] if code in status), 'F10;1')
                     row.append(matched_code)
                 elif status == 'Weekly Off':
                     row.append('Off')
                 elif status == 'Present':
-                    # Check extra hours code like H06 or H07
                     var_str = st['net_variance']
                     if 'H06;' in var_str or 'H07;' in var_str:
                         row.append(var_str)
@@ -1397,7 +1395,6 @@ def export_matrix():
                 else:
                     row.append('F03;1')
             else:
-                # Check if it's weekly off for this day
                 curr_dt_obj = datetime.strptime(d_str, '%Y-%m-%d')
                 if curr_dt_obj.strftime('%A').upper() == emp_info['off'].upper():
                     row.append('Off')
