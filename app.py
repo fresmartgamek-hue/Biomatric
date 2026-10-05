@@ -119,37 +119,117 @@ def get_emp_info(emp_code):
     return val
 
 def upload_file_to_github(file_path, github_destination_path):
-    """Local file ko GitHub repository ke folder me upload karta hai"""
-    if not GITHUB_TOKEN or GITHUB_TOKEN == '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':
-        print("GitHub token default or missing, skipping GitHub upload.")
-        return False
+  """Local file ko GitHub repository ke folder me upload karta hai"""
+  token = os.getenv('GITHUB_TOKEN', '').strip()
+
+  # Agar environment variable me token nahi mila toh directly use karein
+  if not token or token == 'YOUR_GITHUB_TOKEN':
+    print(
+        '[ERROR] GitHub Token environment variable missing or invalid:'
+        f' {token}'
+    )
+    return False
+
+  try:
+    g = Github(token)
+    repo = g.get_repo(GITHUB_REPO_NAME)
+
+    with open(file_path, 'rb') as f:
+      content = f.read()
+
     try:
-        g = Github(GITHUB_TOKEN)
-        repo = g.get_repo(GITHUB_REPO_NAME)
-        
-        with open(file_path, "rb") as f:
-            content = f.read()
-            
-        try:
-            file = repo.get_contents(github_destination_path, ref=GITHUB_BRANCH)
-            repo.update_file(
-                path=github_destination_path,
-                message=f"Update leave document: {github_destination_path}",
-                content=content,
-                sha=file.sha,
-                branch=GITHUB_BRANCH
-            )
-        except Exception:
-            repo.create_file(
-                path=github_destination_path,
-                message=f"Upload leave document: {github_destination_path}",
-                content=content,
-                branch=GITHUB_BRANCH
-            )
-        return True
-    except Exception as e:
-        print(f"GitHub Upload Error: {e}")
-        return False
+      file_obj = repo.get_contents(github_destination_path, ref=GITHUB_BRANCH)
+      repo.update_file(
+          path=github_destination_path,
+          message=f'Update file: {github_destination_path}',
+          content=content,
+          sha=file_obj.sha,
+          branch=GITHUB_BRANCH,
+      )
+    except Exception:
+      repo.create_file(
+          path=github_destination_path,
+          message=f'Upload file: {github_destination_path}',
+          content=content,
+          branch=GITHUB_BRANCH,
+      )
+    print(f'[SUCCESS] Uploaded {github_destination_path} to GitHub!')
+    return True
+  except Exception as e:
+    print(f'[GITHUB ERROR] Failed to upload {github_destination_path}: {e}')
+    return False
+
+
+@app.route('/apply_leave', methods=['POST'])
+def apply_leave():
+  if not session.get('logged_in') or session.get('role') != 'employee':
+    return redirect(url_for('login'))
+
+  user_id = session.get('user_id')
+  name = session.get('user_name')
+  start_date = request.form.get('start_date')
+  end_date = request.form.get('end_date')
+  leave_type = request.form.get('leave_type', 'F10;1')
+
+  filename = None
+  file = request.files.get('supporting_doc')
+  github_success = False
+
+  if file and file.filename != '':
+    if not allowed_file(file.filename):
+      flash(
+          'Invalid file format! Sirf PDF, JPG, PNG ya DOC files allowed hain.',
+          'danger',
+      )
+      return redirect(url_for('index'))
+
+    filename = secure_filename(file.filename)
+    local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(local_path)
+
+    # GitHub upload
+    github_path = f'leave_documents/{user_id}_{filename}'
+    github_success = upload_file_to_github(local_path, github_path)
+
+  # Excel save & GitHub Sync
+  save_leave_to_excel(
+      user_id,
+      name,
+      start_date,
+      end_date,
+      leave_type,
+      filename if filename else 'No Document',
+  )
+  upload_file_to_github(LEAVE_EXCEL_FILE, 'leave_records.xlsx')
+
+  # Global list & JSON save
+  leave_req = {
+      'id': len(LEAVE_REQUESTS) + 1,
+      'user_id': user_id,
+      'name': name,
+      'start_date': start_date,
+      'end_date': end_date,
+      'leave_type': leave_type,
+      'filename': filename,
+      'status': 'Pending',
+  }
+  LEAVE_REQUESTS.append(leave_req)
+  save_leave_requests(LEAVE_REQUESTS)
+
+  if file and file.filename != '' and not github_success:
+    flash(
+        'Leave request submit ho gayi hai, lekin GitHub par document sync nahi'
+        ' ho paya! Please GitHub Token check karein.',
+        'warning',
+    )
+  else:
+    flash(
+        'Aapki leave request successfully submit ho gayi hai aur document'
+        ' GitHub par sync ho gaya hai!',
+        'success',
+    )
+
+  return redirect(url_for('index'))
 
 def save_leave_to_excel(emp_code, emp_name, start_date, end_date, leave_type, doc_filename):
     """Excel file me employee ki leave details save karta hai"""
