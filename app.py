@@ -120,10 +120,11 @@ def get_emp_info(emp_code):
 
 def upload_file_to_github(file_path, github_destination_path):
   """Local file ko GitHub repository ke folder me upload karta hai"""
-  token = os.getenv('GITHUB_TOKEN', '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').strip()
+  token = os.getenv(
+      'GITHUB_TOKEN', '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'
+  ).strip()
 
-  # Agar environment variable me token nahi mila toh directly use karein
-  if not token or token == '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':
+  if not token or token == 'YOUR_GITHUB_TOKEN':
     print(
         '[ERROR] GitHub Token environment variable missing or invalid:'
         f' {token}'
@@ -131,8 +132,10 @@ def upload_file_to_github(file_path, github_destination_path):
     return False
 
   try:
-    g = Github(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)
-    repo = g.get_repo(fresmartgamek-hue/BiometricE)
+    g = Github(token)
+    repo = g.get_repo(
+        'fresmartgamek-hue/Biometric'
+    )  # Sahi repository name set kiya gaya hai
 
     with open(file_path, 'rb') as f:
       content = f.read()
@@ -158,7 +161,6 @@ def upload_file_to_github(file_path, github_destination_path):
   except Exception as e:
     print(f'[GITHUB ERROR] Failed to upload {github_destination_path}: {e}')
     return False
-
 
 @app.route('/apply_leave', methods=['POST'])
 def apply_leave():
