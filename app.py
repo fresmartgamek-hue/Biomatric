@@ -5,7 +5,18 @@ import math
 import os
 import sys
 from datetime import datetime, time, timedelta
-from flask import Flask, render_template_string, request, Response, send_file, session, redirect, url_for, flash, send_from_directory
+from flask import (
+    Flask,
+    render_template_string,
+    request,
+    Response,
+    send_file,
+    session,
+    redirect,
+    url_for,
+    flash,
+    send_from_directory,
+)
 from github import Github
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -27,7 +38,9 @@ MACHINE_IP = os.getenv('MACHINE_IP', '192.168.1.153')
 PORT = int(os.getenv('MACHINE_PORT', 4370))
 
 # GitHub Configurations via Environment Variables
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', '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')
+GITHUB_TOKEN = os.getenv(
+    'GITHUB_TOKEN', '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'
+)
 GITHUB_REPO_NAME = os.getenv('GITHUB_REPO_NAME', 'fresmartgamek-hue/Biometric')
 GITHUB_BRANCH = os.getenv('GITHUB_BRANCH', 'main')
 
@@ -40,83 +53,275 @@ SYNCED_ATTENDANCE_LOGS = []
 LAST_DEVICE_SYNC_TIME = None
 
 MASTER_EMPLOYEES = {
-    'NWC2981': {'name': 'ANTONIO JOSE BANDOLA', 'off': 'SUNDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning'},
-    'NWC3127': {'name': 'MATEUS ANTONIO DA COSTA BALMIRO', 'off': 'FRIDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning'},
-    'NWC1525': {'name': 'ETY JOSÉ BANDUA MONTEIRO', 'off': 'MONDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning'},
-    'NWC8328': {'name': 'JOAO MATIAS DOMINGOS', 'off': 'SATURDAY', 'dept': 'ADMIN - CCTV', 'shift': 'morning'},
-    'NWC6661': {'name': 'FRANCISCO MUNDELE CHIVELA', 'off': 'WEDNESDAY', 'dept': 'ADMIN - CCTV', 'shift': 'morning'},
-    'NWC1553': {'name': 'TIAGO SANDALA CHISSANHA', 'off': 'SUNDAY', 'dept': 'ADMIN - AUDITOR', 'shift': 'morning'},
-    'NWC8350': {'name': 'LOLIVALDO ALBERTO MADEIRA', 'off': 'SUNDAY', 'dept': 'ADMIN - EDP', 'shift': 'morning'},
-    'NWC5187': {'name': 'VICTOR NSOSI JOAO', 'off': 'MONDAY', 'dept': 'CASH - HEAD', 'shift': 'morning'},
-    'NWC1168': {'name': 'ADELIA MBALOMBO CHIPEPI', 'off': 'SUNDAY', 'dept': 'CASH - HEAD', 'shift': 'morning'},
-    'NWC2652': {'name': 'DULCE DOROTEIA GARCIA LUSITANO', 'off': 'MONDAY', 'dept': 'CASH - HEAD', 'shift': 'morning'},
-    'NWC3381': {'name': 'ANDRE DE JESUS NGOLA JOSE', 'off': 'TUESDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC1983': {'name': 'PATRICIA SOLANGE FRANCISCO', 'off': 'THURSDAY', 'dept': 'CASH', 'shift': 'second'},
-    'NWC8364': {'name': 'DIELUMBAKA AUGUSTO', 'off': 'WEDNESDAY', 'dept': 'CASH', 'shift': 'second'},
-    'NWC2788': {'name': 'INES NACHINGOLO FELICIANO NAMBELO', 'off': 'TUESDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC1010': {'name': 'TERESA PEDRO LEAO', 'off': 'FRIDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC6638': {'name': 'CLAUDIO JANUARIO MANUEL AVELINO', 'off': 'SUNDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC5830': {'name': 'REGINA DE FATIMA VIDAL', 'off': 'MONDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC5529': {'name': 'ALEXANDRE LUIS CORREIA', 'off': 'FRIDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC5713': {'name': 'ROSA GARNEIRA BUMBA', 'off': 'WEDNESDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC5396': {'name': 'COSTA BEBIANO HEBO', 'off': 'THURSDAY', 'dept': 'TALHO', 'shift': 'morning'},
-    'NWC8361': {'name': 'AGOSTINHO JOAQUIM KUANGO DA COSTA', 'off': 'SUNDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC2300': {'name': 'JOANA CARDOSO JOAQUIM AFONSO', 'off': 'MONDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC5168': {'name': 'JOAO NVUNDA DALA', 'off': 'THURSDAY', 'dept': 'F & V', 'shift': 'morning'},
-    'NWC3711': {'name': 'ANGELA MARIA BUMBA', 'off': 'FRIDAY', 'dept': 'F & V', 'shift': 'morning'},
-    'NWC5186': {'name': 'HELIA DOMINGOS DE CARVALHO', 'off': 'WEDNESDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC6702': {'name': 'DOMINGOS GAMA PEREIRA', 'off': 'FRIDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC3596': {'name': 'ALDAIR FERNANDES FERREIRA', 'off': 'TUESDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC2757': {'name': 'JOSEFA KUELUNGA MUASSOKA', 'off': 'THURSDAY', 'dept': 'SECU', 'shift': 'morning'},
-    'NWC4554': {'name': 'DOMINGOS ANTONIO FERNANDO', 'off': 'THURSDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC2624': {'name': 'CECILIA JORGE FAMOSO', 'off': 'FRIDAY', 'dept': 'CASH', 'shift': 'morning'},
-    'NWC3318': {'name': 'JOSE MANUEL KAZOLA', 'off': 'SUNDAY', 'dept': 'FRESCO', 'shift': 'morning'},
-    'NWC7347': {'name': 'ARMANDO CHICOVO SAMBA', 'off': 'TUESDAY', 'dept': 'FRESCO', 'shift': 'morning'},
-    'NWC8362': {'name': 'ARAUJO PAULOMENDES', 'off': 'FRIDAY', 'dept': 'STOCK', 'shift': 'morning'},
-    'NWC6715': {'name': 'RIBEIRO ANTONIO FRANCISCO', 'off': 'THURSDAY', 'dept': 'STOCK', 'shift': 'morning'},
-    'NWC6444': {'name': 'HENRIQUES BRANDAO', 'off': 'WEDNESDAY', 'dept': 'STOCK', 'shift': 'morning'}
+    'NWC2981': {
+        'name': 'ANTONIO JOSE BANDOLA',
+        'off': 'SUNDAY',
+        'dept': 'ADMIN - MANAGER',
+        'shift': 'morning',
+    },
+    'NWC3127': {
+        'name': 'MATEUS ANTONIO DA COSTA BALMIRO',
+        'off': 'FRIDAY',
+        'dept': 'ADMIN - MANAGER',
+        'shift': 'morning',
+    },
+    'NWC1525': {
+        'name': 'ETY JOSÉ BANDUA MONTEIRO',
+        'off': 'MONDAY',
+        'dept': 'ADMIN - MANAGER',
+        'shift': 'morning',
+    },
+    'NWC8328': {
+        'name': 'JOAO MATIAS DOMINGOS',
+        'off': 'SATURDAY',
+        'dept': 'ADMIN - CCTV',
+        'shift': 'morning',
+    },
+    'NWC6661': {
+        'name': 'FRANCISCO MUNDELE CHIVELA',
+        'off': 'WEDNESDAY',
+        'dept': 'ADMIN - CCTV',
+        'shift': 'morning',
+    },
+    'NWC1553': {
+        'name': 'TIAGO SANDALA CHISSANHA',
+        'off': 'SUNDAY',
+        'dept': 'ADMIN - AUDITOR',
+        'shift': 'morning',
+    },
+    'NWC8350': {
+        'name': 'LOLIVALDO ALBERTO MADEIRA',
+        'off': 'SUNDAY',
+        'dept': 'ADMIN - EDP',
+        'shift': 'morning',
+    },
+    'NWC5187': {
+        'name': 'VICTOR NSOSI JOAO',
+        'off': 'MONDAY',
+        'dept': 'CASH - HEAD',
+        'shift': 'morning',
+    },
+    'NWC1168': {
+        'name': 'ADELIA MBALOMBO CHIPEPI',
+        'off': 'SUNDAY',
+        'dept': 'CASH - HEAD',
+        'shift': 'morning',
+    },
+    'NWC2652': {
+        'name': 'DULCE DOROTEIA GARCIA LUSITANO',
+        'off': 'MONDAY',
+        'dept': 'CASH - HEAD',
+        'shift': 'morning',
+    },
+    'NWC3381': {
+        'name': 'ANDRE DE JESUS NGOLA JOSE',
+        'off': 'TUESDAY',
+        'dept': 'CASH',
+        'shift': 'morning',
+    },
+    'NWC1983': {
+        'name': 'PATRICIA SOLANGE FRANCISCO',
+        'off': 'THURSDAY',
+        'dept': 'CASH',
+        'shift': 'second',
+    },
+    'NWC8364': {
+        'name': 'DIELUMBAKA AUGUSTO',
+        'off': 'WEDNESDAY',
+        'dept': 'CASH',
+        'shift': 'second',
+    },
+    'NWC2788': {
+        'name': 'INES NACHINGOLO FELICIANO NAMBELO',
+        'off': 'TUESDAY',
+        'dept': 'CASH',
+        'shift': 'morning',
+    },
+    'NWC1010': {
+        'name': 'TERESA PEDRO LEAO',
+        'off': 'FRIDAY',
+        'dept': 'CASH',
+        'shift': 'morning',
+    },
+    'NWC6638': {
+        'name': 'CLAUDIO JANUARIO MANUEL AVELINO',
+        'off': 'SUNDAY',
+        'dept': 'TALHO',
+        'shift': 'morning',
+    },
+    'NWC5830': {
+        'name': 'REGINA DE FATIMA VIDAL',
+        'off': 'MONDAY',
+        'dept': 'TALHO',
+        'shift': 'morning',
+    },
+    'NWC5529': {
+        'name': 'ALEXANDRE LUIS CORREIA',
+        'off': 'FRIDAY',
+        'dept': 'TALHO',
+        'shift': 'morning',
+    },
+    'NWC5713': {
+        'name': 'ROSA GARNEIRA BUMBA',
+        'off': 'WEDNESDAY',
+        'dept': 'TALHO',
+        'shift': 'morning',
+    },
+    'NWC5396': {
+        'name': 'COSTA BEBIANO HEBO',
+        'off': 'THURSDAY',
+        'dept': 'TALHO',
+        'shift': 'morning',
+    },
+    'NWC8361': {
+        'name': 'AGOSTINHO JOAQUIM KUANGO DA COSTA',
+        'off': 'SUNDAY',
+        'dept': 'SECU',
+        'shift': 'morning',
+    },
+    'NWC2300': {
+        'name': 'JOANA CARDOSO JOAQUIM AFONSO',
+        'off': 'MONDAY',
+        'dept': 'SECU',
+        'shift': 'morning',
+    },
+    'NWC5168': {
+        'name': 'JOAO NVUNDA DALA',
+        'off': 'THURSDAY',
+        'dept': 'F & V',
+        'shift': 'morning',
+    },
+    'NWC3711': {
+        'name': 'ANGELA MARIA BUMBA',
+        'off': 'FRIDAY',
+        'dept': 'F & V',
+        'shift': 'morning',
+    },
+    'NWC5186': {
+        'name': 'HELIA DOMINGOS DE CARVALHO',
+        'off': 'WEDNESDAY',
+        'dept': 'SECU',
+        'shift': 'morning',
+    },
+    'NWC6702': {
+        'name': 'DOMINGOS GAMA PEREIRA',
+        'off': 'FRIDAY',
+        'dept': 'SECU',
+        'shift': 'morning',
+    },
+    'NWC3596': {
+        'name': 'ALDAIR FERNANDES FERREIRA',
+        'off': 'TUESDAY',
+        'dept': 'SECU',
+        'shift': 'morning',
+    },
+    'NWC2757': {
+        'name': 'JOSEFA KUELUNGA MUASSOKA',
+        'off': 'THURSDAY',
+        'dept': 'SECU',
+        'shift': 'morning',
+    },
+    'NWC4554': {
+        'name': 'DOMINGOS ANTONIO FERNANDO',
+        'off': 'THURSDAY',
+        'dept': 'CASH',
+        'shift': 'morning',
+    },
+    'NWC2624': {
+        'name': 'CECILIA JORGE FAMOSO',
+        'off': 'FRIDAY',
+        'dept': 'CASH',
+        'shift': 'morning',
+    },
+    'NWC3318': {
+        'name': 'JOSE MANUEL KAZOLA',
+        'off': 'SUNDAY',
+        'dept': 'FRESCO',
+        'shift': 'morning',
+    },
+    'NWC7347': {
+        'name': 'ARMANDO CHICOVO SAMBA',
+        'off': 'TUESDAY',
+        'dept': 'FRESCO',
+        'shift': 'morning',
+    },
+    'NWC8362': {
+        'name': 'ARAUJO PAULOMENDES',
+        'off': 'FRIDAY',
+        'dept': 'STOCK',
+        'shift': 'morning',
+    },
+    'NWC6715': {
+        'name': 'RIBEIRO ANTONIO FRANCISCO',
+        'off': 'THURSDAY',
+        'dept': 'STOCK',
+        'shift': 'morning',
+    },
+    'NWC6444': {
+        'name': 'HENRIQUES BRANDAO',
+        'off': 'WEDNESDAY',
+        'dept': 'STOCK',
+        'shift': 'morning',
+    },
 }
 
 EMPLOYEE_OVERRIDES = {
     '8364': {'code': 'NWC8364', 'name': 'DIELUMBAKA AUGUSTO'},
     '1': {'code': 'NWC8350', 'name': 'LOLIVALDO ALBERTO MADEIRA'},
     '8362': {'code': 'NWC8362', 'name': 'ARAUJO PAULOMENDES'},
-    '6661': {'code': 'NWC6661', 'name': 'FRANCISCO MUNDELE CHIVELA'}
+    '6661': {'code': 'NWC6661', 'name': 'FRANCISCO MUNDELE CHIVELA'},
 }
 
-# Helper function to check allowed file extensions
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Persistent JSON storage helpers for leave requests
+def allowed_file(filename):
+  return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
 def load_leave_requests():
-    if os.path.exists(LEAVE_JSON_FILE):
-        try:
-            with open(LEAVE_JSON_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Error loading {LEAVE_JSON_FILE}: {e}")
-            return []
-    return []
+  if os.path.exists(LEAVE_JSON_FILE):
+    try:
+      with open(LEAVE_JSON_FILE, 'r', encoding='utf-8') as f:
+        return json.load(f)
+    except Exception as e:
+      print(f'Error loading {LEAVE_JSON_FILE}: {e}')
+      return []
+  return []
+
 
 def save_leave_requests(leave_list):
-    try:
-        with open(LEAVE_JSON_FILE, 'w', encoding='utf-8') as f:
-            json.dump(leave_list, f, indent=4, ensure_ascii=False)
-    except Exception as e:
-        print(f"Error saving {LEAVE_JSON_FILE}: {e}")
+  try:
+    with open(LEAVE_JSON_FILE, 'w', encoding='utf-8') as f:
+      json.dump(leave_list, f, indent=4, ensure_ascii=False)
+  except Exception as e:
+    print(f'Error saving {LEAVE_JSON_FILE}: {e}')
+
 
 LEAVE_REQUESTS = load_leave_requests()
 
+
 def get_emp_info(emp_code):
-    emp_str = str(emp_code).strip()
-    if not emp_str.startswith('NWC') and f"NWC{emp_str}" in MASTER_EMPLOYEES:
-        emp_str = f"NWC{emp_str}"
-    
-    val = MASTER_EMPLOYEES.get(emp_str, {'name': f'Employee {emp_code}', 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning'})
-    if isinstance(val, str):
-        return {'name': val, 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning'}
-    return val
+  emp_str = str(emp_code).strip()
+  if not emp_str.startswith('NWC') and f'NWC{emp_str}' in MASTER_EMPLOYEES:
+    emp_str = f'NWC{emp_str}'
+
+  val = MASTER_EMPLOYEES.get(
+      emp_str,
+      {
+          'name': f'Employee {emp_code}',
+          'off': 'SUNDAY',
+          'dept': 'General',
+          'shift': 'morning',
+      },
+  )
+  if isinstance(val, str):
+    return {
+        'name': val,
+        'off': 'SUNDAY',
+        'dept': 'General',
+        'shift': 'morning',
+    }
+  return val
+
 
 def upload_file_to_github(file_path, github_destination_path):
   """Local file ko GitHub repository ke folder me upload karta hai"""
@@ -133,9 +338,7 @@ def upload_file_to_github(file_path, github_destination_path):
 
   try:
     g = Github(token)
-    repo = g.get_repo(
-        'fresmartgamek-hue/Biometric'
-    )  # Sahi repository name set kiya gaya hai
+    repo = g.get_repo('fresmartgamek-hue/Biometric')
 
     with open(file_path, 'rb') as f:
       content = f.read()
@@ -161,6 +364,31 @@ def upload_file_to_github(file_path, github_destination_path):
   except Exception as e:
     print(f'[GITHUB ERROR] Failed to upload {github_destination_path}: {e}')
     return False
+
+
+def save_leave_to_excel(
+    emp_code, emp_name, start_date, end_date, leave_type, doc_filename
+):
+  """Excel file me employee ki leave details save karta hai"""
+  if os.path.exists(LEAVE_EXCEL_FILE):
+    wb = openpyxl.load_workbook(LEAVE_EXCEL_FILE)
+    ws = wb.active
+  else:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Leave Records'
+    ws.append([
+        'Employee Code',
+        'Employee Name',
+        'Start Date',
+        'End Date',
+        'Leave Type',
+        'Document Name',
+    ])
+
+  ws.append([emp_code, emp_name, start_date, end_date, leave_type, doc_filename])
+  wb.save(LEAVE_EXCEL_FILE)
+
 
 @app.route('/apply_leave', methods=['POST'])
 def apply_leave():
@@ -233,305 +461,462 @@ def apply_leave():
 
   return redirect(url_for('index'))
 
-def save_leave_to_excel(emp_code, emp_name, start_date, end_date, leave_type, doc_filename):
-    """Excel file me employee ki leave details save karta hai"""
-    if os.path.exists(LEAVE_EXCEL_FILE):
-        wb = openpyxl.load_workbook(LEAVE_EXCEL_FILE)
-        ws = wb.active
-    else:
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Leave Records"
-        ws.append(["Employee Code", "Employee Name", "Start Date", "End Date", "Leave Type", "Document Name"])
-        
-    ws.append([emp_code, emp_name, start_date, end_date, leave_type, doc_filename])
-    wb.save(LEAVE_EXCEL_FILE)
 
 def check_device_connectivity():
-    try:
-        zk = ZK(MACHINE_IP, port=PORT, timeout=2, password=0, force_udp=False, ommit_ping=False)
-        conn = zk.connect()
-        if conn:
-            conn.disconnect()
-            return True
-    except Exception:
-        pass
-    
-    if LAST_DEVICE_SYNC_TIME:
-        time_diff = (datetime.now() - LAST_DEVICE_SYNC_TIME).total_seconds()
-        if time_diff < 300: # Active in last 5 mins
-            return True
-            
-    return False
+  try:
+    zk = ZK(
+        MACHINE_IP,
+        port=PORT,
+        timeout=2,
+        password=0,
+        force_udp=False,
+        ommit_ping=False,
+    )
+    conn = zk.connect()
+    if conn:
+      conn.disconnect()
+      return True
+  except Exception:
+    pass
+
+  if LAST_DEVICE_SYNC_TIME:
+    time_diff = (datetime.now() - LAST_DEVICE_SYNC_TIME).total_seconds()
+    if time_diff < 300:
+      return True
+
+  return False
+
 
 def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
-    device_online = check_device_connectivity()
-    period_data = {}
-    raw_punches_list = []
-    users_map_temp = {}
-    
-    for k, v in MASTER_EMPLOYEES.items():
-        info = get_emp_info(k)
-        code_formatted = f"NWC{k}" if not k.startswith('NWC') else k
-        users_map_temp[str(k)] = {'code': code_formatted, 'name': info['name']}
-        
-    for uid_override, over_data in EMPLOYEE_OVERRIDES.items():
-        users_map_temp[str(uid_override)] = {'code': over_data['code'], 'name': over_data['name']}
+  device_online = check_device_connectivity()
+  period_data = {}
+  raw_punches_list = []
+  users_map_temp = {}
 
-    attendance_records = []
-    
-    try:
-        zk = ZK(MACHINE_IP, port=PORT, timeout=2, password=0, force_udp=False, ommit_ping=False)
-        conn = zk.connect()
-        if conn:
-            users = conn.get_users()
-            for user in users:
-                uid_str = str(user.user_id)
-                if uid_str in EMPLOYEE_OVERRIDES:
-                    emp_name = EMPLOYEE_OVERRIDES[uid_str]['name']
-                    emp_code = EMPLOYEE_OVERRIDES[uid_str]['code']
-                else:
-                    info = get_emp_info(uid_str)
-                    emp_name = user.name if user.name else info['name']
-                    emp_code = f"NWC{uid_str}" if not uid_str.startswith('NWC') else uid_str
-                users_map_temp[uid_str] = {'code': emp_code, 'name': emp_name}
-                
-            attendance = conn.get_attendance()
-            for att in attendance:
-                attendance_records.append({
-                    'user_id': str(att.user_id),
-                    'timestamp': att.timestamp
-                })
-            conn.disconnect()
-    except Exception as e:
-        print(f"Direct connection to local device failed (cloud fallback active): {e}")
+  for k, v in MASTER_EMPLOYEES.items():
+    info = get_emp_info(k)
+    code_formatted = f'NWC{k}' if not k.startswith('NWC') else k
+    users_map_temp[str(k)] = {'code': code_formatted, 'name': info['name']}
 
-    if not attendance_records and SYNCED_ATTENDANCE_LOGS:
-        for log in SYNCED_ATTENDANCE_LOGS:
-            ts = log['timestamp']
-            if isinstance(ts, str):
-                try:
-                    ts = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')
-                except ValueError:
-                    try:
-                        ts = datetime.fromisoformat(ts)
-                    except Exception:
-                        continue
-            attendance_records.append({
-                'user_id': str(log['user_id']),
-                'timestamp': ts
-            })
-
-    for att in attendance_records:
-        att_ts = att['timestamp']
-        att_date_str = att_ts.strftime('%Y-%m-%d')
-        if start_date_str <= att_date_str <= end_date_str:
-            raw_uid = str(att['user_id'])
-            
-            if raw_uid in EMPLOYEE_OVERRIDES:
-                emp_code = EMPLOYEE_OVERRIDES[raw_uid]['code']
-                emp_name = EMPLOYEE_OVERRIDES[raw_uid]['name']
-            elif raw_uid in users_map_temp:
-                emp_code = users_map_temp[raw_uid]['code']
-                emp_name = users_map_temp[raw_uid]['name']
-            else:
-                clean_uid = raw_uid.replace('NWC', '')
-                info = get_emp_info(clean_uid)
-                emp_name = info['name']
-                emp_code = f"NWC{clean_uid}" if not clean_uid.startswith('NWC') else clean_uid
-                
-            if filter_user_id and filter_user_id != 'ALL' and emp_code != filter_user_id and raw_uid != filter_user_id:
-                continue
-            
-            raw_punches_list.append({
-                'date': att_date_str, 'time': att_ts.strftime('%H:%M:%S'),
-                'user_id': emp_code, 'name': emp_name, 'timestamp': att_ts
-            })
-            
-            if att_date_str not in period_data:
-                period_data[att_date_str] = {}
-            if emp_code not in period_data[att_date_str]:
-                period_data[att_date_str][emp_code] = {'name': emp_name, 'timestamps': []}
-            period_data[att_date_str][emp_code]['timestamps'].append(att_ts)
-            
-    users_list = []
-    for k, v in sorted(MASTER_EMPLOYEES.items(), key=lambda x: get_emp_info(x[0])['name']):
-        info = get_emp_info(k)
-        code_formatted = f"NWC{k}" if not k.startswith('NWC') else k
-        users_list.append({'user_id': code_formatted, 'name': info['name'], 'dept': info['dept'], 'off': info['off']})
-
-    final_data = []
-    total_duration_seconds = 0
-    total_lunch_seconds = 0
-    total_net_variance_seconds = 0
-    present_count, absent_count, off_count, mis_punch_count, late_arrival_count, ml_count = 0, 0, 0, 0, 0, 0
-    shift_a_count, shift_b_count = 0, 0
-    
-    dates_to_process = sorted(period_data.keys(), reverse=True)
-    if not dates_to_process and start_date_str == end_date_str:
-        dates_to_process = [start_date_str]
-
-    for date_str in dates_to_process:
-        day_users_dict = period_data.get(date_str, {})
-        current_dt = datetime.strptime(date_str, '%Y-%m-%d')
-        current_day_name = current_dt.strftime('%A').upper()
-        is_weekend = current_dt.weekday() >= 5
-
-        present_records, absent_records, off_records, mispunch_records, ml_records = [], [], [], [], []
-
-        for emp_code, emp_data_val in MASTER_EMPLOYEES.items():
-            final_emp_code = f"NWC{emp_code}" if not emp_code.startswith('NWC') else emp_code
-            emp_info = get_emp_info(emp_code)
-            emp_name, emp_off, emp_dept, emp_shift = emp_info['name'], emp_info['off'].upper(), emp_info['dept'], emp_info['shift']
-
-            if filter_user_id and filter_user_id != 'ALL' and final_emp_code != filter_user_id and emp_code != filter_user_id:
-                continue
-
-            approved_leave_obj = next(
-                (l for l in LEAVE_REQUESTS if l['user_id'] == final_emp_code and l['status'] == 'Approved' and l['start_date'] <= date_str <= l['end_date']),
-                None
-            )
-
-            if approved_leave_obj:
-                ml_count += 1
-                leave_type_code = approved_leave_obj.get('leave_type', 'F10;1')
-                ml_records.append({
-                    'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
-                    'store_in': f'Approved Leave ({leave_type_code})', 'lunch_out': '-', 'lunch_in': '-', 'out_time': '-',
-                    'total_lunch': '-', 'lunch_seconds': 3600, 'net_duration_seconds': 0, 'total_hours': '-', 'net_variance': '-', 'variance_type': 'neutral',
-                    'status': f'{leave_type_code} (Leave)', 'is_late': 'No', 'shift_type': '-'
-                })
-                continue
-
-            matched_key = emp_code if emp_code in day_users_dict else (final_emp_code if final_emp_code in day_users_dict else None)
-
-            if matched_key:
-                present_count += 1
-                data_obj = day_users_dict[matched_key]
-                sorted_times = sorted(data_obj['timestamps'])
-                total_punches = len(sorted_times)
-                
-                store_in, lunch_out, lunch_in, out_time = '-', '-', '-', '-'
-                lunch_seconds, net_duration_seconds = 0, 0
-                total_lunch_str, total_hours_str, net_variance_str = '-', '-', '-'
-                variance_type, status, is_late = 'neutral', 'Present', False
-                shift_type = '-'
-
-                first_punch_time = sorted_times[0].time()
-                if first_punch_time <= time(10, 0, 0):
-                    shift_type = 'Shift A'
-                    shift_a_count += 1
-                else:
-                    shift_type = 'Shift B'
-                    shift_b_count += 1
-                
-                if total_punches == 1:
-                    store_in = sorted_times[0].strftime('%H:%M:%S')
-                    status = 'Mis Punch'
-                    mis_punch_count += 1
-                else:
-                    store_in = sorted_times[0].strftime('%H:%M:%S')
-                    out_time = sorted_times[-1].strftime('%H:%M:%S')
-                    store_in_time = sorted_times[0].time()
-                    limit_time = time(13, 10, 0) if emp_shift == 'second' else time(7, 0, 0)
-                    if store_in_time > limit_time:
-                        late_arrival_count += 1
-                        is_late = True
-
-                    if total_punches >= 3:
-                        lunch_out = sorted_times[1].strftime('%H:%M:%S')
-                        lunch_in = sorted_times[2].strftime('%H:%M:%S')
-                        actual_lunch_seconds = (sorted_times[2] - sorted_times[1]).seconds
-                        lunch_seconds = 3600 if actual_lunch_seconds < 3600 else actual_lunch_seconds
-                    else:
-                        lunch_seconds = 3600
-                        
-                    total_lunch_seconds += lunch_seconds
-                    l_hrs = divmod(lunch_seconds, 3600)
-                    total_lunch_str = f"{l_hrs[0]}h {l_hrs[1]//60}m"
-                    
-                    gross_seconds = (sorted_times[-1] - sorted_times[0]).seconds
-                    net_duration_seconds = max(0, gross_seconds - lunch_seconds)
-                    total_duration_seconds += net_duration_seconds
-                    
-                    hours = divmod(net_duration_seconds, 3600)
-                    total_hours_str = f"{hours[0]}h {hours[1]//60}m"
-                    
-                    diff_from_target = net_duration_seconds - (7 * 3600)
-                    total_net_variance_seconds += diff_from_target
-                    
-                    if diff_from_target > 0:
-                        e_hrs = divmod(diff_from_target, 3600)
-                        extra_hours_val = e_hrs[0] + (1 if e_hrs[1] > 0 else 0)
-                        code_prefix = 'H07' if is_weekend else 'H06'
-                        net_variance_str, variance_type = f"{code_prefix};{extra_hours_val}", 'positive'
-                    elif diff_from_target < 0:
-                        short_sec = abs(diff_from_target)
-                        s_hrs = divmod(short_sec, 3600)
-                        net_variance_str, variance_type = f"-{s_hrs[0]}h {s_hrs[1]//60}m", 'negative'
-                    else:
-                        net_variance_str, variance_type = "0h 0m", 'neutral'
-                    
-                    status = 'Present'
-                
-                if current_day_name == emp_off:
-                    status = 'Weekly Off'
-
-                record = {
-                    'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
-                    'store_in': store_in, 'lunch_out': lunch_out, 'lunch_in': lunch_in,
-                    'out_time': out_time, 'total_lunch': total_lunch_str, 'lunch_seconds': lunch_seconds,
-                    'net_duration_seconds': net_duration_seconds, 'total_hours': total_hours_str,
-                    'net_variance': net_variance_str, 'variance_type': variance_type,
-                    'status': status, 'is_late': 'Yes' if is_late else 'No', 'shift_type': shift_type
-                }
-                
-                if status == 'Weekly Off': off_records.append(record)
-                elif status == 'Mis Punch': mispunch_records.append(record)
-                else: present_records.append(record)
-            else:
-                if current_day_name == emp_off:
-                    off_count += 1
-                    off_records.append({
-                        'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
-                        'store_in': '-', 'lunch_out': '-', 'lunch_in': '-', 'out_time': '-',
-                        'total_lunch': '-', 'lunch_seconds': 3600, 'net_duration_seconds': 0, 'total_hours': '-', 'net_variance': 'Off', 'variance_type': 'neutral',
-                        'status': 'Weekly Off', 'is_late': 'No', 'shift_type': '-'
-                    })
-                else:
-                    absent_count += 1
-                    absent_records.append({
-                        'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
-                        'store_in': '-', 'lunch_out': '-', 'lunch_in': '-', 'out_time': '-',
-                        'total_lunch': '-', 'lunch_seconds': 3600, 'net_duration_seconds': 0, 'total_hours': '-', 'net_variance': '-', 'variance_type': 'neutral',
-                        'status': 'Absent', 'is_late': 'No', 'shift_type': '-'
-                    })
-        
-        final_data.extend(present_records + mispunch_records + off_records + absent_records + ml_records)
-            
-    tot_hrs = divmod(total_duration_seconds, 3600)
-    grand_total_hours = f"{tot_hrs[0]}h {tot_hrs[1]//60}m"
-    tot_l_hrs = divmod(total_lunch_seconds, 3600)
-    grand_total_lunch_hours = f"{tot_l_hrs[0]}h {tot_l_hrs[1]//60}m"
-
-    v_sec = total_net_variance_seconds
-    if v_sec >= 0:
-        v_hrs = divmod(v_sec, 3600)
-        grand_total_variance, grand_variance_type = f"+{v_hrs[0]}h {v_hrs[1]//60}m", 'positive'
-    else:
-        v_hrs = divmod(abs(v_sec), 3600)
-        grand_total_variance, grand_variance_type = f"-{v_hrs[0]}h {v_hrs[1]//60}m", 'negative'
-    
-    stats_summary = {
-        'present': present_count, 'absent': absent_count, 'off': off_count, 'mispunch': mis_punch_count,
-        'late_arrival': late_arrival_count, 'ml': ml_count,
-        'shift_a': shift_a_count, 'shift_b': shift_b_count,
-        'total_hrs': grand_total_hours, 'total_lunch_hrs': grand_total_lunch_hours,
-        'total_variance': grand_total_variance, 'variance_type': grand_variance_type, 'device_online': device_online
+  for uid_override, over_data in EMPLOYEE_OVERRIDES.items():
+    users_map_temp[str(uid_override)] = {
+        'code': over_data['code'],
+        'name': over_data['name'],
     }
-    
-    raw_punches_list = sorted(raw_punches_list, key=lambda x: x['timestamp'], reverse=True)
-    return final_data, users_list, grand_total_hours, grand_total_lunch_hours, grand_total_variance, raw_punches_list, stats_summary
+
+  attendance_records = []
+
+  try:
+    zk = ZK(
+        MACHINE_IP,
+        port=PORT,
+        timeout=2,
+        password=0,
+        force_udp=False,
+        ommit_ping=False,
+    )
+    conn = zk.connect()
+    if conn:
+      users = conn.get_users()
+      for user in users:
+        uid_str = str(user.user_id)
+        if uid_str in EMPLOYEE_OVERRIDES:
+          emp_name = EMPLOYEE_OVERRIDES[uid_str]['name']
+          emp_code = EMPLOYEE_OVERRIDES[uid_str]['code']
+        else:
+          info = get_emp_info(uid_str)
+          emp_name = user.name if user.name else info['name']
+          emp_code = (
+              f'NWC{uid_str}' if not uid_str.startswith('NWC') else uid_str
+          )
+        users_map_temp[uid_str] = {'code': emp_code, 'name': emp_name}
+
+      attendance = conn.get_attendance()
+      for att in attendance:
+        attendance_records.append(
+            {'user_id': str(att.user_id), 'timestamp': att.timestamp}
+        )
+      conn.disconnect()
+  except Exception as e:
+    print(
+        f'Direct connection to local device failed (cloud fallback active): {e}'
+    )
+
+  if not attendance_records and SYNCED_ATTENDANCE_LOGS:
+    for log in SYNCED_ATTENDANCE_LOGS:
+      ts = log['timestamp']
+      if isinstance(ts, str):
+        try:
+          ts = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+          try:
+            ts = datetime.fromisoformat(ts)
+          except Exception:
+            continue
+      attendance_records.append(
+          {'user_id': str(log['user_id']), 'timestamp': ts}
+      )
+
+  for att in attendance_records:
+    att_ts = att['timestamp']
+    att_date_str = att_ts.strftime('%Y-%m-%d')
+    if start_date_str <= att_date_str <= end_date_str:
+      raw_uid = str(att['user_id'])
+
+      if raw_uid in EMPLOYEE_OVERRIDES:
+        emp_code = EMPLOYEE_OVERRIDES[raw_uid]['code']
+        emp_name = EMPLOYEE_OVERRIDES[raw_uid]['name']
+      elif raw_uid in users_map_temp:
+        emp_code = users_map_temp[raw_uid]['code']
+        emp_name = users_map_temp[raw_uid]['name']
+      else:
+        clean_uid = raw_uid.replace('NWC', '')
+        info = get_emp_info(clean_uid)
+        emp_name = info['name']
+        emp_code = (
+            f'NWC{clean_uid}'
+            if not clean_uid.startswith('NWC')
+            else clean_uid
+        )
+
+      if (
+          filter_user_id
+          and filter_user_id != 'ALL'
+          and emp_code != filter_user_id
+          and raw_uid != filter_user_id
+      ):
+        continue
+
+      raw_punches_list.append({
+          'date': att_date_str,
+          'time': att_ts.strftime('%H:%M:%S'),
+          'user_id': emp_code,
+          'name': emp_name,
+          'timestamp': att_ts,
+      })
+
+      if att_date_str not in period_data:
+        period_data[att_date_str] = {}
+      if emp_code not in period_data[att_date_str]:
+        period_data[att_date_str][emp_code] = {'name': emp_name, 'timestamps': []}
+      period_data[att_date_str][emp_code]['timestamps'].append(att_ts)
+
+  users_list = []
+  for k, v in sorted(
+      MASTER_EMPLOYEES.items(), key=lambda x: get_emp_info(x[0])['name']
+  ):
+    info = get_emp_info(k)
+    code_formatted = f'NWC{k}' if not k.startswith('NWC') else k
+    users_list.append({
+        'user_id': code_formatted,
+        'name': info['name'],
+        'dept': info['dept'],
+        'off': info['off'],
+    })
+
+  final_data = []
+  total_duration_seconds = 0
+  total_lunch_seconds = 0
+  total_net_variance_seconds = 0
+  present_count, absent_count, off_count, mis_punch_count, late_arrival_count, ml_count = (
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+  )
+  shift_a_count, shift_b_count = 0, 0
+
+  dates_to_process = sorted(period_data.keys(), reverse=True)
+  if not dates_to_process and start_date_str == end_date_str:
+    dates_to_process = [start_date_str]
+
+  for date_str in dates_to_process:
+    day_users_dict = period_data.get(date_str, {})
+    current_dt = datetime.strptime(date_str, '%Y-%m-%d')
+    current_day_name = current_dt.strftime('%A').upper()
+    is_weekend = current_dt.weekday() >= 5
+
+    present_records, absent_records, off_records, mispunch_records, ml_records = (
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
+
+    for emp_code, emp_data_val in MASTER_EMPLOYEES.items():
+      final_emp_code = (
+          f'NWC{emp_code}' if not emp_code.startswith('NWC') else emp_code
+      )
+      emp_info = get_emp_info(emp_code)
+      emp_name, emp_off, emp_dept, emp_shift = (
+          emp_info['name'],
+          emp_info['off'].upper(),
+          emp_info['dept'],
+          emp_info['shift'],
+      )
+
+      if (
+          filter_user_id
+          and filter_user_id != 'ALL'
+          and final_emp_code != filter_user_id
+          and emp_code != filter_user_id
+      ):
+        continue
+
+      approved_leave_obj = next(
+          (
+              l
+              for l in LEAVE_REQUESTS
+              if l['user_id'] == final_emp_code
+              and l['status'] == 'Approved'
+              and l['start_date'] <= date_str <= l['end_date']
+          ),
+          None,
+      )
+
+      if approved_leave_obj:
+        ml_count += 1
+        leave_type_code = approved_leave_obj.get('leave_type', 'F10;1')
+        ml_records.append({
+            'date': date_str,
+            'user_id': final_emp_code,
+            'name': emp_name,
+            'dept': emp_dept,
+            'store_in': f'Approved Leave ({leave_type_code})',
+            'lunch_out': '-',
+            'lunch_in': '-',
+            'out_time': '-',
+            'total_lunch': '-',
+            'lunch_seconds': 3600,
+            'net_duration_seconds': 0,
+            'total_hours': '-',
+            'net_variance': '-',
+            'variance_type': 'neutral',
+            'status': f'{leave_type_code} (Leave)',
+            'is_late': 'No',
+            'shift_type': '-',
+        })
+        continue
+
+      matched_key = (
+          emp_code
+          if emp_code in day_users_dict
+          else (final_emp_code if final_emp_code in day_users_dict else None)
+      )
+
+      if matched_key:
+        present_count += 1
+        data_obj = day_users_dict[matched_key]
+        sorted_times = sorted(data_obj['timestamps'])
+        total_punches = len(sorted_times)
+
+        store_in, lunch_out, lunch_in, out_time = '-', '-', '-', '-'
+        lunch_seconds, net_duration_seconds = 0, 0
+        total_lunch_str, total_hours_str, net_variance_str = '-', '-', '-'
+        variance_type, status, is_late = 'neutral', 'Present', False
+        shift_type = '-'
+
+        first_punch_time = sorted_times[0].time()
+        if first_punch_time <= time(10, 0, 0):
+          shift_type = 'Shift A'
+          shift_a_count += 1
+        else:
+          shift_type = 'Shift B'
+          shift_b_count += 1
+
+        if total_punches == 1:
+          store_in = sorted_times[0].strftime('%H:%M:%S')
+          status = 'Mis Punch'
+          mis_punch_count += 1
+        else:
+          store_in = sorted_times[0].strftime('%H:%M:%S')
+          out_time = sorted_times[-1].strftime('%H:%M:%S')
+          store_in_time = sorted_times[0].time()
+          limit_time = (
+              time(13, 10, 0) if emp_shift == 'second' else time(7, 0, 0)
+          )
+          if store_in_time > limit_time:
+            late_arrival_count += 1
+            is_late = True
+
+          if total_punches >= 3:
+            lunch_out = sorted_times[1].strftime('%H:%M:%S')
+            lunch_in = sorted_times[2].strftime('%H:%M:%S')
+            actual_lunch_seconds = (
+                sorted_times[2] - sorted_times[1]
+            ).seconds
+            lunch_seconds = (
+                3600 if actual_lunch_seconds < 3600 else actual_lunch_seconds
+            )
+          else:
+            lunch_seconds = 3600
+
+          total_lunch_seconds += lunch_seconds
+          l_hrs = divmod(lunch_seconds, 3600)
+          total_lunch_str = f'{l_hrs[0]}h {l_hrs[1]//60}m'
+
+          gross_seconds = (sorted_times[-1] - sorted_times[0]).seconds
+          net_duration_seconds = max(0, gross_seconds - lunch_seconds)
+          total_duration_seconds += net_duration_seconds
+
+          hours = divmod(net_duration_seconds, 3600)
+          total_hours_str = f'{hours[0]}h {hours[1]//60}m'
+
+          diff_from_target = net_duration_seconds - (7 * 3600)
+          total_net_variance_seconds += diff_from_target
+
+          if diff_from_target > 0:
+            e_hrs = divmod(diff_from_target, 3600)
+            extra_hours_val = e_hrs[0] + (1 if e_hrs[1] > 0 else 0)
+            code_prefix = 'H07' if is_weekend else 'H06'
+            net_variance_str, variance_type = (
+                f'{code_prefix};{extra_hours_val}',
+                'positive',
+            )
+          elif diff_from_target < 0:
+            short_sec = abs(diff_from_target)
+            s_hrs = divmod(short_sec, 3600)
+            net_variance_str, variance_type = (
+                f'-{s_hrs[0]}h {s_hrs[1]//60}m',
+                'negative',
+            )
+          else:
+            net_variance_str, variance_type = '0h 0m', 'neutral'
+
+          status = 'Present'
+
+        if current_day_name == emp_off:
+          status = 'Weekly Off'
+
+        record = {
+            'date': date_str,
+            'user_id': final_emp_code,
+            'name': emp_name,
+            'dept': emp_dept,
+            'store_in': store_in,
+            'lunch_out': lunch_out,
+            'lunch_in': lunch_in,
+            'out_time': out_time,
+            'total_lunch': total_lunch_str,
+            'lunch_seconds': lunch_seconds,
+            'net_duration_seconds': net_duration_seconds,
+            'total_hours': total_hours_str,
+            'net_variance': net_variance_str,
+            'variance_type': variance_type,
+            'status': status,
+            'is_late': 'Yes' if is_late else 'No',
+            'shift_type': shift_type,
+        }
+
+        if status == 'Weekly Off':
+          off_records.append(record)
+        elif status == 'Mis Punch':
+          mispunch_records.append(record)
+        else:
+          present_records.append(record)
+      else:
+        if current_day_name == emp_off:
+          off_count += 1
+          off_records.append({
+              'date': date_str,
+              'user_id': final_emp_code,
+              'name': emp_name,
+              'dept': emp_dept,
+              'store_in': '-',
+              'lunch_out': '-',
+              'lunch_in': '-',
+              'out_time': '-',
+              'total_lunch': '-',
+              'lunch_seconds': 3600,
+              'net_duration_seconds': 0,
+              'total_hours': '-',
+              'net_variance': 'Off',
+              'variance_type': 'neutral',
+              'status': 'Weekly Off',
+              'is_late': 'No',
+              'shift_type': '-',
+          })
+        else:
+          absent_count += 1
+          absent_records.append({
+              'date': date_str,
+              'user_id': final_emp_code,
+              'name': emp_name,
+              'dept': emp_dept,
+              'store_in': '-',
+              'lunch_out': '-',
+              'lunch_in': '-',
+              'out_time': '-',
+              'total_lunch': '-',
+              'lunch_seconds': 3600,
+              'net_duration_seconds': 0,
+              'total_hours': '-',
+              'net_variance': '-',
+              'variance_type': 'neutral',
+              'status': 'Absent',
+              'is_late': 'No',
+              'shift_type': '-',
+          })
+
+    final_data.extend(
+        present_records
+        + mispunch_records
+        + off_records
+        + absent_records
+        + ml_records
+    )
+
+  tot_hrs = divmod(total_duration_seconds, 3600)
+  grand_total_hours = f'{tot_hrs[0]}h {tot_hrs[1]//60}m'
+  tot_l_hrs = divmod(total_lunch_seconds, 3600)
+  grand_total_lunch_hours = f'{tot_l_hrs[0]}h {tot_l_hrs[1]//60}m'
+
+  v_sec = total_net_variance_seconds
+  if v_sec >= 0:
+    v_hrs = divmod(v_sec, 3600)
+    grand_total_variance, grand_variance_type = (
+        f'+{v_hrs[0]}h {v_hrs[1]//60}m',
+        'positive',
+    )
+  else:
+    v_hrs = divmod(abs(v_sec), 3600)
+    grand_total_variance, grand_variance_type = (
+        f'-{v_hrs[0]}h {v_hrs[1]//60}m',
+        'negative',
+    )
+
+  stats_summary = {
+      'present': present_count,
+      'absent': absent_count,
+      'off': off_count,
+      'mispunch': mis_punch_count,
+      'late_arrival': late_arrival_count,
+      'ml': ml_count,
+      'shift_a': shift_a_count,
+      'shift_b': shift_b_count,
+      'total_hrs': grand_total_hours,
+      'total_lunch_hrs': grand_total_lunch_hours,
+      'total_variance': grand_total_variance,
+      'variance_type': grand_variance_type,
+      'device_online': device_online,
+  }
+
+  raw_punches_list = sorted(
+      raw_punches_list, key=lambda x: x['timestamp'], reverse=True
+  )
+  return (
+      final_data,
+      users_list,
+      grand_total_hours,
+      grand_total_lunch_hours,
+      grand_total_variance,
+      raw_punches_list,
+      stats_summary,
+  )
+
 
 LOGIN_TEMPLATE = """
 <!DOCTYPE html>
@@ -1333,312 +1718,393 @@ HTML_TEMPLATE = """
 </html>
 """
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        uid = request.form.get('user_id').strip().upper()
-        pwd = request.form.get('password').strip()
-        
-        admin_pass = os.getenv('ADMIN_PWD', 'Gamek@789')
-        dev_pass = os.getenv('DEV_PWD', 'Shama@8577')
-        
-        if uid == 'LM11' and pwd == admin_pass:
-            session['logged_in'] = True
-            session['role'] = 'admin'
-            session['user_id'] = 'LM11'
-            session['user_name'] = 'Admin (LM11)'
-            return redirect(url_for('index'))
-            
-        if uid == 'NCSA0608' and pwd == dev_pass:
-            session['logged_in'] = True
-            session['role'] = 'developer'
-            session['user_id'] = 'NCSA0608'
-            session['user_name'] = 'Sonu Kumar (Developer)'
-            return redirect(url_for('index'))
-            
-        emp_key = f"NWC{uid}" if not uid.startswith('NWC') else uid
-        if emp_key in MASTER_EMPLOYEES and pwd == '123':
-            session['logged_in'] = True
-            session['role'] = 'employee'
-            session['user_id'] = emp_key
-            session['user_name'] = MASTER_EMPLOYEES[emp_key]['name']
-            return redirect(url_for('index'))
-        else:
-            return render_template_string(LOGIN_TEMPLATE, error="Galat User ID ya Password!")
-    return render_template_string(LOGIN_TEMPLATE, error=None)
+  if request.method == 'POST':
+    uid = request.form.get('user_id').strip().upper()
+    pwd = request.form.get('password').strip()
+
+    admin_pass = os.getenv('ADMIN_PWD', 'Gamek@789')
+    dev_pass = os.getenv('DEV_PWD', 'Shama@8577')
+
+    if uid == 'LM11' and pwd == admin_pass:
+      session['logged_in'] = True
+      session['role'] = 'admin'
+      session['user_id'] = 'LM11'
+      session['user_name'] = 'Admin (LM11)'
+      return redirect(url_for('index'))
+
+    if uid == 'NCSA0608' and pwd == dev_pass:
+      session['logged_in'] = True
+      session['role'] = 'developer'
+      session['user_id'] = 'NCSA0608'
+      session['user_name'] = 'Sonu Kumar (Developer)'
+      return redirect(url_for('index'))
+
+    emp_key = f'NWC{uid}' if not uid.startswith('NWC') else uid
+    if emp_key in MASTER_EMPLOYEES and pwd == '123':
+      session['logged_in'] = True
+      session['role'] = 'employee'
+      session['user_id'] = emp_key
+      session['user_name'] = MASTER_EMPLOYEES[emp_key]['name']
+      return redirect(url_for('index'))
+    else:
+      return render_template_string(
+          LOGIN_TEMPLATE, error='Galat User ID ya Password!'
+      )
+  return render_template_string(LOGIN_TEMPLATE, error=None)
+
 
 @app.route('/logout')
 def logout():
-    role = session.get('role')
-    user_name = session.get('user_name', '')
-    
-    msg_text = "Thank you admin" if role == 'admin' else f"Thank you {user_name}"
-    session.clear()
-    flash(msg_text, 'success')
-    return redirect(url_for('login'))
+  role = session.get('role')
+  user_name = session.get('user_name', '')
+
+  msg_text = 'Thank you admin' if role == 'admin' else f'Thank you {user_name}'
+  session.clear()
+  flash(msg_text, 'success')
+  return redirect(url_for('login'))
+
 
 @app.route('/')
 def index():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-        
-    role = session.get('role')
-    logged_user_id = session.get('user_id')
-    logged_user_name = session.get('user_name')
-    
-    if role == 'employee':
-        selected_emp = logged_user_id
-    else:
-        selected_emp = request.args.get('employee', 'ALL')
-        
-    today_str = datetime.now().strftime('%Y-%m-%d')
-    start_date = request.args.get('start_date', today_str)
-    end_date = request.args.get('end_date', today_str)
-    
-    logs, all_users, g_hrs, g_l_hrs, g_var, raw_punches, stats = fetch_attendance_data(start_date, end_date, selected_emp)
-    
-    pending_leaves_count = sum(1 for req in LEAVE_REQUESTS if req['status'] == 'Pending')
-    
-    if role == 'employee':
-        current_user_leave_requests = [req for req in LEAVE_REQUESTS if req['user_id'] == logged_user_id]
-    else:
-        current_user_leave_requests = LEAVE_REQUESTS
-    
-    return render_template_string(
-        HTML_TEMPLATE,
-        logs=logs,
-        all_users=all_users,
-        start_date=start_date,
-        end_date=end_date,
-        selected_emp=selected_emp,
-        grand_total_hours=g_hrs,
-        grand_total_lunch_hours=g_l_hrs,
-        grand_total_variance=g_var,
-        stats=stats,
-        raw_punches=raw_punches,
-        role=role,
-        logged_user_name=logged_user_name,
-        leave_requests=current_user_leave_requests,
-        pending_leaves_count=pending_leaves_count
-    )
+  if not session.get('logged_in'):
+    return redirect(url_for('login'))
 
-@app.route('/apply_leave', methods=['POST'])
-def apply_leave():
-    if not session.get('logged_in') or session.get('role') != 'employee':
-        return redirect(url_for('login'))
-        
-    user_id = session.get('user_id')
-    name = session.get('user_name')
-    start_date = request.form.get('start_date')
-    end_date = request.form.get('end_date')
-    leave_type = request.form.get('leave_type', 'F10;1')
-    
-    filename = None
-    file = request.files.get('supporting_doc')
-    if file and file.filename != '':
-        if not allowed_file(file.filename):
-            flash('Invalid file format! Sirf PDF, JPG, PNG ya DOC files allowed hain.', 'danger')
-            return redirect(url_for('index'))
-            
-        filename = secure_filename(file.filename)
-        local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(local_path)
-        
-        # 1. GitHub par upload karein (Folder ka naam: leave_documents/)
-        github_path = f"leave_documents/{user_id}_{filename}"
-        upload_file_to_github(local_path, github_path)
+  role = session.get('role')
+  logged_user_id = session.get('user_id')
+  logged_user_name = session.get('user_name')
 
-    # 2. Excel me record save karein
-    save_leave_to_excel(user_id, name, start_date, end_date, leave_type, filename if filename else "No Document")
+  if role == 'employee':
+    selected_emp = logged_user_id
+  else:
+    selected_emp = request.args.get('employee', 'ALL')
 
-    # 3. Global list me add karein aur JSON persistence save karein
-    leave_req = {
-        'id': len(LEAVE_REQUESTS) + 1,
-        'user_id': user_id,
-        'name': name,
-        'start_date': start_date,
-        'end_date': end_date,
-        'leave_type': leave_type,
-        'filename': filename,
-        'status': 'Pending'
-    }
-    LEAVE_REQUESTS.append(leave_req)
-    save_leave_requests(LEAVE_REQUESTS)
-    
-    flash('Aapki leave request successfully submit ho gayi hai aur document GitHub par sync ho gaya hai!', 'success')
-    return redirect(url_for('index'))
+  today_str = datetime.now().strftime('%Y-%m-%d')
+  start_date = request.args.get('start_date', today_str)
+  end_date = request.args.get('end_date', today_str)
+
+  logs, all_users, g_hrs, g_l_hrs, g_var, raw_punches, stats = (
+      fetch_attendance_data(start_date, end_date, selected_emp)
+  )
+
+  pending_leaves_count = sum(
+      1 for req in LEAVE_REQUESTS if req['status'] == 'Pending'
+  )
+
+  if role == 'employee':
+    current_user_leave_requests = [
+        req for req in LEAVE_REQUESTS if req['user_id'] == logged_user_id
+    ]
+  else:
+    current_user_leave_requests = LEAVE_REQUESTS
+
+  return render_template_string(
+      HTML_TEMPLATE,
+      logs=logs,
+      all_users=all_users,
+      start_date=start_date,
+      end_date=end_date,
+      selected_emp=selected_emp,
+      grand_total_hours=g_hrs,
+      grand_total_lunch_hours=g_l_hrs,
+      grand_total_variance=g_var,
+      stats=stats,
+      raw_punches=raw_punches,
+      role=role,
+      logged_user_name=logged_user_name,
+      leave_requests=current_user_leave_requests,
+      pending_leaves_count=pending_leaves_count,
+  )
+
 
 @app.route('/update_leave/<int:req_id>/<action>')
 def update_leave(req_id, action):
-    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
-        return redirect(url_for('login'))
-        
-    for req in LEAVE_REQUESTS:
-        if req['id'] == req_id:
-            if action == 'approve':
-                req['status'] = 'Approved'
-                flash(f"Leave request for {req['name']} approved successfully!", 'success')
-            elif action == 'reject':
-                req['status'] = 'Rejected'
-                flash(f"Leave request for {req['name']} rejected.", 'success')
-            break
-            
-    save_leave_requests(LEAVE_REQUESTS)
-    return redirect(url_for('index'))
+  if not session.get('logged_in') or session.get('role') not in [
+      'admin',
+      'developer',
+  ]:
+    return redirect(url_for('login'))
+
+  for req in LEAVE_REQUESTS:
+    if req['id'] == req_id:
+      if action == 'approve':
+        req['status'] = 'Approved'
+        flash(f"Leave request for {req['name']} approved successfully!", 'success')
+      elif action == 'reject':
+        req['status'] = 'Rejected'
+        flash(f"Leave request for {req['name']} rejected.", 'success')
+      break
+
+  save_leave_requests(LEAVE_REQUESTS)
+  return redirect(url_for('index'))
+
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+  if not session.get('logged_in'):
+    return redirect(url_for('login'))
+  return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 
 @app.route('/export')
 def export_excel():
-    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
-        return redirect(url_for('login'))
-        
-    start_date = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
-    end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
-    selected_emp = request.args.get('employee', 'ALL')
-    
-    logs, _, g_hrs, g_l_hrs, g_var, _, _ = fetch_attendance_data(start_date, end_date, selected_emp)
-    
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Attendance Report"
-    ws.sheet_view.showGridLines = True
-    
-    headers = ["Sr. No.", "Date", "ID", "Employee Name", "Department", "Store In", "Lunch Out", "Lunch In", "Out Time", "Total Lunch", "Working Hours", "Total Hora Extra", "Status"]
-    ws.append([])
-    ws.append(["Gamek Fresmart Express - Attendance Report"])
-    ws.append([f"Period: {start_date} to {end_date}"])
-    ws.append([])
-    ws.append(headers)
-    
-    for idx, log in enumerate(logs, 1):
-        ws.append([
-            idx, log['date'], log['user_id'], log['name'], log['dept'],
-            log['store_in'], log['lunch_out'], log['lunch_in'], log['out_time'],
-            log['total_lunch'], log['total_hours'], log['net_variance'], log['status']
-        ])
-        
-    ws.append([])
-    ws.append(["", "", "", "", "", "", "", "", "Total Summary:", g_l_hrs, g_hrs, g_var])
-    
-    excel_io = io.BytesIO()
-    wb.save(excel_io)
-    excel_io.seek(0)
-    
-    filename = f"Attendance_Report_{start_date}_to_{end_date}.xlsx"
-    return send_file(excel_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=filename)
+  if not session.get('logged_in') or session.get('role') not in [
+      'admin',
+      'developer',
+  ]:
+    return redirect(url_for('login'))
+
+  start_date = request.args.get(
+      'start_date', datetime.now().strftime('%Y-%m-%d')
+  )
+  end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+  selected_emp = request.args.get('employee', 'ALL')
+
+  logs, _, g_hrs, g_l_hrs, g_var, _, _ = fetch_attendance_data(
+      start_date, end_date, selected_emp
+  )
+
+  wb = openpyxl.Workbook()
+  ws = wb.active
+  ws.title = 'Attendance Report'
+  ws.sheet_view.showGridLines = True
+
+  headers = [
+      'Sr. No.',
+      'Date',
+      'ID',
+      'Employee Name',
+      'Department',
+      'Store In',
+      'Lunch Out',
+      'Lunch In',
+      'Out Time',
+      'Total Lunch',
+      'Working Hours',
+      'Total Hora Extra',
+      'Status',
+  ]
+  ws.append([])
+  ws.append(['Gamek Fresmart Express - Attendance Report'])
+  ws.append([f'Period: {start_date} to {end_date}'])
+  ws.append([])
+  ws.append(headers)
+
+  for idx, log in enumerate(logs, 1):
+    ws.append([
+        idx,
+        log['date'],
+        log['user_id'],
+        log['name'],
+        log['dept'],
+        log['store_in'],
+        log['lunch_out'],
+        log['lunch_in'],
+        log['out_time'],
+        log['total_lunch'],
+        log['total_hours'],
+        log['net_variance'],
+        log['status'],
+    ])
+
+  ws.append([])
+  ws.append([
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      'Total Summary:',
+      g_l_hrs,
+      g_hrs,
+      g_var,
+  ])
+
+  excel_io = io.BytesIO()
+  wb.save(excel_io)
+  excel_io.seek(0)
+
+  filename = f'Attendance_Report_{start_date}_to_{end_date}.xlsx'
+  return send_file(
+      excel_io,
+      mimetype=(
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ),
+      as_attachment=True,
+      download_name=filename,
+  )
+
 
 @app.route('/export_matrix')
 def export_matrix():
-    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
-        return redirect(url_for('login'))
-        
-    start_date = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
-    end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
-    
-    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-    end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-    date_list = []
-    curr = start_dt
-    while curr <= end_dt:
-        date_list.append(curr.strftime('%Y-%m-%d'))
-        curr += timedelta(days=1)
-        
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Employee Matrix"
-    ws.sheet_view.showGridLines = True
-    
-    headers = ["ID", "Employee Name", "Department"] + date_list
-    ws.append(["Gamek Fresmart Express - Employee Matrix Attendance Report"])
-    ws.append([f"Period: {start_date} to {end_date}"])
-    ws.append([])
-    ws.append(headers)
-    
-    for emp_code, emp_data in sorted(MASTER_EMPLOYEES.items(), key=lambda x: get_emp_info(x[0])['name']):
-        final_code = f"NWC{emp_code}" if not emp_code.startswith('NWC') else emp_code
-        emp_info = get_emp_info(emp_code)
-        row = [final_code, emp_info['name'], emp_info['dept']]
-        
-        for d_str in date_list:
-            logs_d, _, _, _, _, _, _ = fetch_attendance_data(d_str, d_str, final_code)
-            if logs_d:
-                st = logs_d[0]
-                status = st['status']
-                
-                if any(code in status for code in ['F01;1', 'F03;1', 'F05;1', 'F10;1', 'F51;1', 'F60;1', 'F61;1', 'F62;1']):
-                    matched_code = next((code for code in ['F01;1', 'F03;1', 'F05;1', 'F10;1', 'F51;1', 'F60;1', 'F61;1', 'F62;1'] if code in status), 'F10;1')
-                    row.append(matched_code)
-                elif status == 'Weekly Off':
-                    row.append('Off')
-                elif status == 'Present':
-                    var_str = st['net_variance']
-                    if 'H06;' in var_str or 'H07;' in var_str:
-                        row.append(var_str)
-                    else:
-                        row.append('P')
-                elif status == 'Mis Punch':
-                    row.append('Mis Punch')
-                else:
-                    row.append('F03;1')
-            else:
-                curr_dt_obj = datetime.strptime(d_str, '%Y-%m-%d')
-                if curr_dt_obj.strftime('%A').upper() == emp_info['off'].upper():
-                    row.append('Off')
-                else:
-                    row.append('F03;1')
-        ws.append(row)
-        
-    excel_io = io.BytesIO()
-    wb.save(excel_io)
-    excel_io.seek(0)
-    filename = f"Employee_Matrix_{start_date}_to_{end_date}.xlsx"
-    return send_file(excel_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=filename)
+  if not session.get('logged_in') or session.get('role') not in [
+      'admin',
+      'developer',
+  ]:
+    return redirect(url_for('login'))
+
+  start_date = request.args.get(
+      'start_date', datetime.now().strftime('%Y-%m-%d')
+  )
+  end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+
+  start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+  end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+  date_list = []
+  curr = start_dt
+  while curr <= end_dt:
+    date_list.append(curr.strftime('%Y-%m-%d'))
+    curr += timedelta(days=1)
+
+  wb = openpyxl.Workbook()
+  ws = wb.active
+  ws.title = 'Employee Matrix'
+  ws.sheet_view.showGridLines = True
+
+  headers = ['ID', 'Employee Name', 'Department'] + date_list
+  ws.append(['Gamek Fresmart Express - Employee Matrix Attendance Report'])
+  ws.append([f'Period: {start_date} to {end_date}'])
+  ws.append([])
+  ws.append(headers)
+
+  for emp_code, emp_data in sorted(
+      MASTER_EMPLOYEES.items(), key=lambda x: get_emp_info(x[0])['name']
+  ):
+    final_code = f'NWC{emp_code}' if not emp_code.startswith('NWC') else emp_code
+    emp_info = get_emp_info(emp_code)
+    row = [final_code, emp_info['name'], emp_info['dept']]
+
+    for d_str in date_list:
+      logs_d, _, _, _, _, _, _ = fetch_attendance_data(d_str, d_str, final_code)
+      if logs_d:
+        st = logs_d[0]
+        status = st['status']
+
+        if any(
+            code in status
+            for code in [
+                'F01;1',
+                'F03;1',
+                'F05;1',
+                'F10;1',
+                'F51;1',
+                'F60;1',
+                'F61;1',
+                'F62;1',
+            ]
+        ):
+          matched_code = next(
+              (
+                  code
+                  for code in [
+                      'F01;1',
+                      'F03;1',
+                      'F05;1',
+                      'F10;1',
+                      'F51;1',
+                      'F60;1',
+                      'F61;1',
+                      'F62;1',
+                  ]
+                  if code in status
+              ),
+              'F10;1',
+          )
+          row.append(matched_code)
+        elif status == 'Weekly Off':
+          row.append('Off')
+        elif status == 'Present':
+          var_str = st['net_variance']
+          if 'H06;' in var_str or 'H07;' in var_str:
+            row.append(var_str)
+          else:
+            row.append('P')
+        elif status == 'Mis Punch':
+          row.append('Mis Punch')
+        else:
+          row.append('F03;1')
+      else:
+        curr_dt_obj = datetime.strptime(d_str, '%Y-%m-%d')
+        if curr_dt_obj.strftime('%A').upper() == emp_info['off'].upper():
+          row.append('Off')
+        else:
+          row.append('F03;1')
+    ws.append(row)
+
+  excel_io = io.BytesIO()
+  wb.save(excel_io)
+  excel_io.seek(0)
+  filename = f'Employee_Matrix_{start_date}_to_{end_date}.xlsx'
+  return send_file(
+      excel_io,
+      mimetype=(
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ),
+      as_attachment=True,
+      download_name=filename,
+  )
+
 
 @app.route('/shutdown')
 def shutdown():
-    dev_pass = os.getenv('DEV_PWD', 'Shama@8577')
-    if session.get('role') in ['admin', 'developer'] and request.args.get('pwd') == dev_pass:
-        func = request.environ.get('werkzeug.server.shutdown')
-        if func:
-            func()
-            return "Server successfully shutdown ho gaya hai."
-        else:
-            # Modern Werkzeug fallback
-            sys.exit(0)
-    return "Unauthorized access!", 403
+  dev_pass = os.getenv('DEV_PWD', 'Shama@8577')
+  if (
+      session.get('role') in ['admin', 'developer']
+      and request.args.get('pwd') == dev_pass
+  ):
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func:
+      func()
+      return 'Server successfully shutdown ho gaya hai.'
+    else:
+      sys.exit(0)
+  return 'Unauthorized access!', 403
+
 
 # BIOMETRIC LOCAL SYNC ENDPOINT
 @app.route('/api/attendance/sync', methods=['POST'])
 def sync_attendance():
-    global SYNCED_ATTENDANCE_LOGS, LAST_DEVICE_SYNC_TIME
-    try:
-        data = request.get_json()
-        if not data or 'logs' not in data:
-            return {'status': 'error', 'message': 'No logs provided'}, 400
-            
-        logs = data['logs']
-        existing_keys = {(str(item.get('user_id')), str(item.get('timestamp'))) for item in SYNCED_ATTENDANCE_LOGS}
-        
-        added_count = 0
-        for log in logs:
-            key = (str(log.get('user_id')), str(log.get('timestamp')))
-            if key not in existing_keys:
-                SYNCED_ATTENDANCE_LOGS.append(log)
-                existing_keys.add(key)
-                added_count += 1
-                
-        LAST_DEVICE_SYNC_TIME = datetime.now()
-        print(f"Received {len(logs)} logs from local device. {added_count} new records added.")
-        return {'status': 'success', 'message': f'{len(logs)} records synced successfully ({added_count} new)'}, 200
-    except Exception as e:
-        print(f"Error in sync_attendance: {e}")
-        return {'status': 'error', 'message': str(e)}, 500
+  global SYNCED_ATTENDANCE_LOGS, LAST_DEVICE_SYNC_TIME
+  try:
+    data = request.get_json()
+    if not data or 'logs' not in data:
+      return {'status': 'error', 'message': 'No logs provided'}, 400
+
+    logs = data['logs']
+    existing_keys = {
+        (str(item.get('user_id')), str(item.get('timestamp')))
+        for item in SYNCED_ATTENDANCE_LOGS
+    }
+
+    added_count = 0
+    for log in logs:
+      key = (str(log.get('user_id')), str(log.get('timestamp')))
+      if key not in existing_keys:
+        SYNCED_ATTENDANCE_LOGS.append(log)
+        existing_keys.add(key)
+        added_count += 1
+
+    LAST_DEVICE_SYNC_TIME = datetime.now()
+    print(
+        f'Received {len(logs)} logs from local device. {added_count} new'
+        ' records added.'
+    )
+    return {
+        'status': 'success',
+        'message': (
+            f'{len(logs)} records synced successfully ({added_count} new)'
+        ),
+    }, 200
+  except Exception as e:
+    print(f'Error in sync_attendance: {e}')
+    return {'status': 'error', 'message': str(e)}, 500
+
 
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+  port = int(os.getenv('PORT', 5000))
+  app.run(host='0.0.0.0', port=port, debug=True)
