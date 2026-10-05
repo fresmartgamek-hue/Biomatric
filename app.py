@@ -38,9 +38,7 @@ MACHINE_IP = os.getenv('MACHINE_IP', '192.168.1.153')
 PORT = int(os.getenv('MACHINE_PORT', 4370))
 
 # GitHub Configurations via Environment Variables (Updated with new token fallback)
-GITHUB_TOKEN = os.getenv(
-    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-)
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 GITHUB_REPO_NAME = os.getenv('GITHUB_REPO_NAME', 'fresmartgamek-hue/Biometric')
 GITHUB_BRANCH = os.getenv('GITHUB_BRANCH', 'main')
 
