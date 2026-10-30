@@ -1750,7 +1750,9 @@ def export_matrix():
     ws.title = "Employee Matrix"
     ws.sheet_view.showGridLines = True
     
-    headers = ["ID", "Employee Name", "Department"] + date_list
+    headers = ["ID", "Employee Name", "Department"] + date_list + [
+        "Total Absent", "Total Weekly Off", "Total Present"
+    ]
     ws.append(["Gamek Fresmart Express - Employee Matrix Attendance Report"])
     ws.append([f"Period: {start_date} to {end_date}"])
     ws.append([])
@@ -1781,6 +1783,12 @@ def export_matrix():
                     row.append('Weekly Off')
                 else:
                     row.append('Absent')
+        date_statuses = row[3:]
+        row.extend([
+            date_statuses.count('Absent'),
+            date_statuses.count('Weekly Off'),
+            date_statuses.count('Present')
+        ])
         ws.append(row)
 
     for cell in ws[4]:
@@ -1790,11 +1798,16 @@ def export_matrix():
 
     absent_fill = PatternFill(fill_type='solid', fgColor='FF0000')
     absent_font = Font(color='FFFFFF', bold=True)
+    weekly_off_fill = PatternFill(fill_type='solid', fgColor='16A34A')
+    weekly_off_font = Font(color='FFFFFF', bold=True)
     for row in ws.iter_rows(min_row=5, min_col=4, max_col=3 + len(date_list)):
         for cell in row:
             if cell.value == 'Absent':
                 cell.fill = absent_fill
                 cell.font = absent_font
+            elif cell.value == 'Weekly Off':
+                cell.fill = weekly_off_fill
+                cell.font = weekly_off_font
         
     excel_io = io.BytesIO()
     wb.save(excel_io)
