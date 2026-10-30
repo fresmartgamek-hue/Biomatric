@@ -4,6 +4,7 @@ import json
 import math
 import os
 import sys
+import threading
 from datetime import datetime, time, timedelta
 from flask import Flask, render_template_string, request, Response, send_file, session, redirect, url_for, flash, send_from_directory
 from github import Github
@@ -34,10 +35,15 @@ GITHUB_BRANCH = os.getenv('GITHUB_BRANCH', 'main')
 # Persistent Storage Files
 LEAVE_JSON_FILE = 'leave_requests.json'
 LEAVE_EXCEL_FILE = 'leave_records.xlsx'
+MONTHLY_ROSTER_FILE = 'monthly_rosters.json'
 
 # Global storage for synced biometric logs
 SYNCED_ATTENDANCE_LOGS = []
 LAST_DEVICE_SYNC_TIME = None
+ATTENDANCE_SYNC_INTERVAL_SECONDS = 30 * 60
+ATTENDANCE_SYNC_LOCK = threading.Lock()
+BACKGROUND_SYNC_START_LOCK = threading.Lock()
+BACKGROUND_SYNC_THREAD = None
 
 MASTER_EMPLOYEES = {
     'NWC2981': {'name': 'ANTONIO JOSE BANDOLA', 'off': 'SUNDAY', 'dept': 'ADMIN - MANAGER', 'shift': 'morning'},
@@ -108,6 +114,26 @@ def save_leave_requests(leave_list):
 
 LEAVE_REQUESTS = load_leave_requests()
 
+def load_monthly_rosters():
+    if os.path.exists(MONTHLY_ROSTER_FILE):
+        try:
+            with open(MONTHLY_ROSTER_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading {MONTHLY_ROSTER_FILE}: {e}")
+    return {}
+
+def save_monthly_rosters():
+    try:
+        with open(MONTHLY_ROSTER_FILE, 'w', encoding='utf-8') as f:
+            json.dump(MONTHLY_ROSTERS, f, indent=4, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"Error saving {MONTHLY_ROSTER_FILE}: {e}")
+        return False
+
+MONTHLY_ROSTERS = load_monthly_rosters()
+
 def get_emp_info(emp_code):
     emp_str = str(emp_code).strip()
     if not emp_str.startswith('NWC') and f"NWC{emp_str}" in MASTER_EMPLOYEES:
@@ -117,6 +143,43 @@ def get_emp_info(emp_code):
     if isinstance(val, str):
         return {'name': val, 'off': 'SUNDAY', 'dept': 'General', 'shift': 'morning'}
     return val
+
+def get_default_roster_patterns(emp_code):
+    info = get_emp_info(emp_code)
+    shift = 'Shift B' if info['shift'] == 'second' else 'Shift A'
+    weekdays = ['Off' if day == info['off'].upper() else shift for day in (
+        'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'
+    )]
+    return {'week1': weekdays[:], 'week2': weekdays[:]}
+
+def get_monthly_roster_patterns(month):
+    saved_roster = MONTHLY_ROSTERS.get(month, {})
+    patterns = {}
+    for emp_code in MASTER_EMPLOYEES:
+        final_code = f"NWC{emp_code}" if not emp_code.startswith('NWC') else emp_code
+        defaults = get_default_roster_patterns(emp_code)
+        saved = saved_roster.get(final_code, {})
+        patterns[final_code] = {
+            week: saved.get(week, defaults[week])
+            for week in ('week1', 'week2')
+        }
+    return patterns
+
+def get_monthly_roster_assignment(emp_code, date_str):
+    month = date_str[:7]
+    patterns = MONTHLY_ROSTERS.get(month, {}).get(emp_code)
+    if not patterns:
+        return None
+
+    current_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    return get_roster_assignment_from_patterns(patterns, current_date)
+
+def get_roster_assignment_from_patterns(patterns, current_date):
+    first_date = current_date.replace(day=1)
+    first_week_start = first_date - timedelta(days=first_date.weekday())
+    week_number = ((current_date - first_week_start).days // 7) + 1
+    pattern_name = 'week1' if week_number % 2 else 'week2'
+    return patterns[pattern_name][current_date.weekday()]
 
 def upload_file_to_github(file_path, github_destination_path):
     """Local file ko GitHub repository ke folder me upload karta hai"""
@@ -301,6 +364,12 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
             final_emp_code = f"NWC{emp_code}" if not emp_code.startswith('NWC') else emp_code
             emp_info = get_emp_info(emp_code)
             emp_name, emp_off, emp_dept, emp_shift = emp_info['name'], emp_info['off'].upper(), emp_info['dept'], emp_info['shift']
+            roster_assignment = get_monthly_roster_assignment(final_emp_code, date_str)
+            if roster_assignment == 'Shift A':
+                emp_shift = 'morning'
+            elif roster_assignment == 'Shift B':
+                emp_shift = 'second'
+            scheduled_off = roster_assignment == 'Off' if roster_assignment else current_day_name == emp_off
 
             if filter_user_id and filter_user_id != 'ALL' and final_emp_code != filter_user_id and emp_code != filter_user_id:
                 continue
@@ -392,7 +461,7 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                     
                     status = 'Present'
                 
-                if current_day_name == emp_off:
+                if scheduled_off:
                     status = 'Weekly Off'
 
                 record = {
@@ -408,7 +477,7 @@ def fetch_attendance_data(start_date_str, end_date_str, filter_user_id):
                 elif status == 'Mis Punch': mispunch_records.append(record)
                 else: present_records.append(record)
             else:
-                if current_day_name == emp_off:
+                if scheduled_off:
                     off_count += 1
                     off_records.append({
                         'date': date_str, 'user_id': final_emp_code, 'name': emp_name, 'dept': emp_dept,
@@ -627,25 +696,28 @@ HTML_TEMPLATE = """
             }
         }
 
-        let timeLeft = 180;
-        let timerInterval;
+        async function syncBiometricNow() {
+            const button = document.getElementById('sync-button');
+            const status = document.getElementById('sync-status');
+            if (!button || button.disabled) return;
 
-        function startTimer() {
-            clearInterval(timerInterval);
-            timeLeft = 180;
-            timerInterval = setInterval(function() {
-                if (timeLeft <= 0) { 
-                    window.location.reload(); 
-                } else {
-                    let m = Math.floor(timeLeft / 60);
-                    let s = timeLeft % 60;
-                    let timerEl = document.getElementById('countdown-timer');
-                    if (timerEl) {
-                        timerEl.innerText = m + ':' + (s < 10 ? '0' : '') + s;
-                    }
-                    timeLeft -= 1;
-                }
-            }, 1000);
+            button.disabled = true;
+            button.textContent = 'Syncing...';
+            status.textContent = 'Connecting to biometric device';
+            try {
+                const response = await fetch('/api/attendance/sync', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Sync failed');
+                status.textContent = result.message;
+            } catch (error) {
+                status.textContent = error.message || 'Unable to sync biometric data';
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Sync Now';
+            }
         }
 
         function setQuickDate(type) {
@@ -686,7 +758,6 @@ HTML_TEMPLATE = """
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            startTimer();
             setInterval(updateLiveClock, 1000);
             updateLiveClock();
         });
@@ -719,10 +790,17 @@ HTML_TEMPLATE = """
                     <span>📁</span>
                     <span>Projects & Tasks</span>
                 </a>
+                {% if role in ['admin', 'developer'] %}
+                <a href="{{ url_for('monthly_roster', month=start_date[:7]) }}" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
+                    <span>📅</span>
+                    <span>Monthly Roster</span>
+                </a>
+                {% else %}
                 <a href="#" onclick="openCalendarModal(); return false;" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
                     <span>📅</span>
                     <span>Calendar & Rota</span>
                 </a>
+                {% endif %}
                 <a href="#" onclick="openLeaveModal(); return false;" class="flex items-center justify-between px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium text-xs transition">
                     <div class="flex items-center space-x-3">
                         <span>🏖️</span>
@@ -789,8 +867,11 @@ HTML_TEMPLATE = """
                     <span class="text-slate-600 font-medium">Device: <strong class="{% if stats.device_online %}text-emerald-600{% else %}text-red-600{% endif %}">{% if stats.device_online %}Online{% else %}Offline{% endif %}</strong></span>
                     <span class="text-slate-300">|</span>
                     <span id="live-digital-clock" class="text-slate-700 font-semibold"></span>
+                    {% if role in ['admin', 'developer'] %}
                     <span class="text-slate-300">|</span>
-                    <span class="text-slate-500">Sync: <strong id="countdown-timer" class="text-emerald-600 font-mono">03:00</strong></span>
+                    <button id="sync-button" type="button" onclick="syncBiometricNow()" class="rounded-lg bg-emerald-600 px-3 py-1.5 font-bold text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60">Sync Now</button>
+                    <span id="sync-status" role="status" class="max-w-56 text-slate-500"></span>
+                    {% endif %}
                 </div>
 
                 <div class="flex items-center space-x-2 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700">
@@ -919,7 +1000,11 @@ HTML_TEMPLATE = """
                         {% if role == 'admin' or role == 'developer' %}
                         <button type="button" onclick="openExportModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl text-center shadow-md transition">Export 📥</button>
                         {% endif %}
+                        {% if role in ['admin', 'developer'] %}
+                        <a href="{{ url_for('monthly_roster', month=start_date[:7]) }}" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl text-center shadow-md transition">📅 Monthly Roster</a>
+                        {% else %}
                         <button type="button" onclick="openCalendarModal()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider py-3 px-3 rounded-xl text-center shadow-md transition">📅 Rota</button>
+                        {% endif %}
                     </div>
                 </form>
                 
@@ -1251,6 +1336,88 @@ HTML_TEMPLATE = """
 </html>
 """
 
+MONTHLY_ROSTER_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Employee Roster</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800">
+    <main class="mx-auto max-w-[1600px] space-y-5 p-4 md:p-8">
+        <header class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-emerald-700">Gamek Fresmart Express</p>
+                <h1 class="mt-1 text-2xl font-black text-slate-900">Monthly Employee Roster</h1>
+                <p class="mt-2 text-sm text-slate-600">Week 1 repeats in weeks 3 and 5; Week 2 repeats in week 4.</p>
+            </div>
+            <a href="/" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Back to dashboard</a>
+        </header>
+
+        <form method="GET" action="/monthly_roster" class="flex flex-wrap items-end gap-3">
+            <div>
+                <label for="month" class="mb-1 block text-xs font-bold uppercase text-slate-500">Roster month</label>
+                <input id="month" name="month" type="month" value="{{ month }}" required class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+            </div>
+            <button type="submit" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">Load month</button>
+            {% if saved %}
+            <a href="/monthly_roster/export?month={{ month }}" class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800">Download Excel</a>
+            {% endif %}
+            {% if saved %}<span class="text-sm font-semibold text-emerald-700">Roster saved for {{ month }}.</span>{% endif %}
+        </form>
+
+        <form method="POST" action="/monthly_roster" class="space-y-4">
+            <input type="hidden" name="month" value="{{ month }}">
+            <p class="text-sm text-slate-600">Set each employee's Monday-Sunday pattern for Week 1 and Week 2. Weeks are counted from the Monday on or before the 1st; only dates in the selected month are included.</p>
+            <div class="overflow-auto rounded-lg border border-slate-300 bg-white">
+                <table class="min-w-[1500px] border-collapse text-left text-xs">
+                    <thead class="sticky top-0 z-10 bg-slate-100 text-slate-600">
+                        <tr class="uppercase tracking-wide">
+                            <th rowspan="2" class="sticky left-0 z-20 min-w-64 border border-slate-200 bg-slate-100 px-3 py-3">Employee</th>
+                            <th colspan="7" class="border border-slate-200 px-2 py-2 text-center">Week 1 · repeats 3 and 5</th>
+                            <th colspan="7" class="border border-slate-200 px-2 py-2 text-center">Week 2 · repeats 4</th>
+                        </tr>
+                        <tr>
+                            {% for pattern_key, pattern_label in week_patterns %}
+                                {% for day in weekdays %}
+                                <th class="min-w-24 border border-slate-200 px-2 py-2 text-center">{{ day }}</th>
+                                {% endfor %}
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in employees %}
+                        <tr class="hover:bg-slate-50">
+                            <th class="sticky left-0 z-[1] border border-slate-200 bg-white px-3 py-2 text-left">
+                                <span class="block font-mono text-[10px] text-slate-500">{{ employee.user_id }}</span>
+                                <span class="block font-bold text-slate-900">{{ employee.name }}</span>
+                                <span class="block text-[10px] font-medium text-slate-500">{{ employee.dept }}</span>
+                            </th>
+                            {% for pattern_key, pattern_label in week_patterns %}
+                                {% for day_index in range(7) %}
+                                <td class="border border-slate-200 p-1">
+                                    <select name="pattern_{{ employee.user_id }}_{{ pattern_key }}_{{ day_index }}" class="w-full rounded border border-slate-300 bg-white px-1.5 py-2 text-xs font-semibold">
+                                        {% for option in assignment_options %}
+                                        <option value="{{ option }}" {% if patterns[employee.user_id][pattern_key][day_index] == option %}selected{% endif %}>{{ option }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                {% endfor %}
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit" class="rounded-lg bg-emerald-700 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800">Save Monthly Roster</button>
+        </form>
+    </main>
+</body>
+</html>
+"""
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -1338,6 +1505,112 @@ def index():
         logged_user_name=logged_user_name,
         leave_requests=current_user_leave_requests,
         pending_leaves_count=pending_leaves_count
+    )
+
+@app.route('/monthly_roster', methods=['GET', 'POST'])
+def monthly_roster():
+    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
+        return redirect(url_for('login'))
+
+    month = request.form.get('month') if request.method == 'POST' else request.args.get('month')
+    month = month or datetime.now().strftime('%Y-%m')
+    try:
+        datetime.strptime(month, '%Y-%m')
+    except (TypeError, ValueError):
+        return 'Invalid roster month. Use YYYY-MM.', 400
+
+    if request.method == 'POST':
+        allowed_assignments = {'Shift A', 'Shift B', 'Off'}
+        roster_patterns = {}
+        for emp_code in MASTER_EMPLOYEES:
+            final_code = f"NWC{emp_code}" if not emp_code.startswith('NWC') else emp_code
+            roster_patterns[final_code] = {}
+            for pattern_name in ('week1', 'week2'):
+                assignments = [
+                    request.form.get(f'pattern_{final_code}_{pattern_name}_{day_index}')
+                    for day_index in range(7)
+                ]
+                if any(value not in allowed_assignments for value in assignments):
+                    return 'Roster contains an invalid shift assignment.', 400
+                roster_patterns[final_code][pattern_name] = assignments
+
+        MONTHLY_ROSTERS[month] = roster_patterns
+        if not save_monthly_rosters():
+            return 'Unable to save the monthly roster.', 500
+        return redirect(url_for('monthly_roster', month=month))
+
+    employees = []
+    for emp_code, emp_data in sorted(MASTER_EMPLOYEES.items(), key=lambda item: get_emp_info(item[0])['name']):
+        final_code = f"NWC{emp_code}" if not emp_code.startswith('NWC') else emp_code
+        info = get_emp_info(emp_code)
+        employees.append({'user_id': final_code, 'name': info['name'], 'dept': info['dept']})
+
+    return render_template_string(
+        MONTHLY_ROSTER_TEMPLATE,
+        month=month,
+        saved=month in MONTHLY_ROSTERS,
+        employees=employees,
+        patterns=get_monthly_roster_patterns(month),
+        week_patterns=[('week1', 'Week 1'), ('week2', 'Week 2')],
+        weekdays=['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+        assignment_options=['Shift A', 'Shift B', 'Off']
+    )
+
+@app.route('/monthly_roster/export')
+def export_monthly_roster():
+    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
+        return redirect(url_for('login'))
+
+    month = request.args.get('month', datetime.now().strftime('%Y-%m'))
+    try:
+        month_start = datetime.strptime(f'{month}-01', '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return 'Invalid roster month. Use YYYY-MM.', 400
+
+    next_month = (month_start + timedelta(days=32)).replace(day=1)
+    month_dates = [
+        month_start + timedelta(days=day_offset)
+        for day_offset in range((next_month - month_start).days)
+    ]
+    patterns = get_monthly_roster_patterns(month)
+
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Monthly Roster'
+    worksheet.append(['Gamek Fresmart Express - Monthly Employee Roster'])
+    worksheet.append([f'Month: {month}'])
+    worksheet.append(['A = Shift A | B = Shift B | Off = Weekly Off'])
+    worksheet.append(['ID', 'Employee Name', 'Department'] + [date.strftime('%a %d') for date in month_dates])
+    worksheet.freeze_panes = 'D5'
+    worksheet.column_dimensions['A'].width = 14
+    worksheet.column_dimensions['B'].width = 34
+    worksheet.column_dimensions['C'].width = 24
+
+    for date_index in range(len(month_dates)):
+        worksheet.column_dimensions[openpyxl.utils.get_column_letter(date_index + 4)].width = 12
+
+    for emp_code, emp_data in sorted(MASTER_EMPLOYEES.items(), key=lambda item: get_emp_info(item[0])['name']):
+        final_code = f"NWC{emp_code}" if not emp_code.startswith('NWC') else emp_code
+        info = get_emp_info(emp_code)
+        row = [final_code, info['name'], info['dept']]
+        for current_date in month_dates:
+            assignment = get_roster_assignment_from_patterns(patterns[final_code], current_date)
+            row.append({'Shift A': 'A', 'Shift B': 'B', 'Off': 'Off'}[assignment])
+        worksheet.append(row)
+
+    for cell in worksheet[4]:
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(fill_type='solid', fgColor='334155')
+        cell.alignment = Alignment(horizontal='center')
+
+    excel_io = io.BytesIO()
+    workbook.save(excel_io)
+    excel_io.seek(0)
+    return send_file(
+        excel_io,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'Employee_Roster_{month}.xlsx'
     )
 
 @app.route('/apply_leave', methods=['POST'])
@@ -1457,6 +1730,12 @@ def export_matrix():
         
     start_date = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
     end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+
+    logs, _, _, _, _, _, _ = fetch_attendance_data(start_date, end_date, 'ALL')
+    logs_by_employee_and_date = {
+        (log['user_id'], log['date']): log
+        for log in logs
+    }
     
     start_dt = datetime.strptime(start_date, '%Y-%m-%d')
     end_dt = datetime.strptime(end_date, '%Y-%m-%d')
@@ -1483,9 +1762,8 @@ def export_matrix():
         row = [final_code, emp_info['name'], emp_info['dept']]
         
         for d_str in date_list:
-            logs_d, _, _, _, _, _, _ = fetch_attendance_data(d_str, d_str, final_code)
-            if logs_d:
-                st = logs_d[0]
+            st = logs_by_employee_and_date.get((final_code, d_str))
+            if st:
                 status = st['status']
                 
                 if any(code in status for code in ['F01;1', 'F03;1', 'F05;1', 'F10;1', 'F51;1', 'F60;1', 'F61;1', 'F62;1']):
@@ -1530,32 +1808,103 @@ def shutdown():
             sys.exit(0)
     return "Unauthorized access!", 403
 
+def read_biometric_attendance_logs():
+    zk = ZK(MACHINE_IP, port=PORT, timeout=10, password=0, force_udp=False, ommit_ping=False)
+    conn = zk.connect()
+    if not conn:
+        raise ConnectionError('Could not connect to the biometric device')
+
+    try:
+        attendance = conn.get_attendance() or []
+        return [
+            {
+                'user_id': str(record.user_id),
+                'timestamp': record.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for record in attendance
+        ]
+    finally:
+        conn.disconnect()
+
+def merge_synced_attendance_logs(logs):
+    global LAST_DEVICE_SYNC_TIME
+    existing_keys = {
+        (str(item.get('user_id')), str(item.get('timestamp')))
+        for item in SYNCED_ATTENDANCE_LOGS
+    }
+    added_count = 0
+    for log in logs:
+        if not isinstance(log, dict) or 'user_id' not in log or 'timestamp' not in log:
+            continue
+        key = (str(log['user_id']), str(log['timestamp']))
+        if key not in existing_keys:
+            SYNCED_ATTENDANCE_LOGS.append(log)
+            existing_keys.add(key)
+            added_count += 1
+
+    LAST_DEVICE_SYNC_TIME = datetime.now()
+    return added_count
+
+def sync_biometric_attendance():
+    with ATTENDANCE_SYNC_LOCK:
+        logs = read_biometric_attendance_logs()
+        added_count = merge_synced_attendance_logs(logs)
+        return len(logs), added_count
+
+def background_attendance_sync_loop():
+    while True:
+        try:
+            total_count, added_count = sync_biometric_attendance()
+            print(f"Background biometric sync: {total_count} records read ({added_count} new)")
+        except Exception as e:
+            print(f"Background biometric sync failed: {e}")
+        threading.Event().wait(ATTENDANCE_SYNC_INTERVAL_SECONDS)
+
+def start_background_attendance_sync():
+    global BACKGROUND_SYNC_THREAD
+    with BACKGROUND_SYNC_START_LOCK:
+        if BACKGROUND_SYNC_THREAD and BACKGROUND_SYNC_THREAD.is_alive():
+            return
+        BACKGROUND_SYNC_THREAD = threading.Thread(
+            target=background_attendance_sync_loop,
+            name='biometric-attendance-sync',
+            daemon=True
+        )
+        BACKGROUND_SYNC_THREAD.start()
+
+@app.before_request
+def ensure_background_attendance_sync():
+    if not app.testing and not request.environ.get('werkzeug.test'):
+        start_background_attendance_sync()
+
 # BIOMETRIC LOCAL SYNC ENDPOINT
 @app.route('/api/attendance/sync', methods=['POST'])
 def sync_attendance():
-    global SYNCED_ATTENDANCE_LOGS, LAST_DEVICE_SYNC_TIME
-    try:
-        data = request.get_json()
-        if not data or 'logs' not in data:
-            return {'status': 'error', 'message': 'No logs provided'}, 400
-            
+    data = request.get_json(silent=True) or {}
+    if 'logs' in data:
         logs = data['logs']
-        existing_keys = {(str(item.get('user_id')), str(item.get('timestamp'))) for item in SYNCED_ATTENDANCE_LOGS}
-        
-        added_count = 0
-        for log in logs:
-            key = (str(log.get('user_id')), str(log.get('timestamp')))
-            if key not in existing_keys:
-                SYNCED_ATTENDANCE_LOGS.append(log)
-                existing_keys.add(key)
-                added_count += 1
-                
-        LAST_DEVICE_SYNC_TIME = datetime.now()
-        print(f"Received {len(logs)} logs from local device. {added_count} new records added.")
-        return {'status': 'success', 'message': f'{len(logs)} records synced successfully ({added_count} new)'}, 200
+        if not isinstance(logs, list):
+            return {'status': 'error', 'message': 'Logs must be a list'}, 400
+        with ATTENDANCE_SYNC_LOCK:
+            added_count = merge_synced_attendance_logs(logs)
+        return {
+            'status': 'success',
+            'message': f'{len(logs)} records received ({added_count} new)'
+        }, 200
+
+    if not session.get('logged_in') or session.get('role') not in ['admin', 'developer']:
+        return {'status': 'error', 'message': 'Admin login required to sync the biometric device'}, 403
+
+    try:
+        total_count, added_count = sync_biometric_attendance()
+        print(f"Manual biometric sync: {total_count} records read ({added_count} new)")
+        return {
+            'status': 'success',
+            'message': f'{total_count} biometric records synced ({added_count} new)'
+        }, 200
     except Exception as e:
         print(f"Error in sync_attendance: {e}")
-        return {'status': 'error', 'message': str(e)}, 500
+        return {'status': 'error', 'message': str(e)}, 502
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
