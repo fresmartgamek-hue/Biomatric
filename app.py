@@ -1765,29 +1765,36 @@ def export_matrix():
             st = logs_by_employee_and_date.get((final_code, d_str))
             if st:
                 status = st['status']
-                
-                if any(code in status for code in ['F01;1', 'F03;1', 'F05;1', 'F10;1', 'F51;1', 'F60;1', 'F61;1', 'F62;1']):
-                    matched_code = next((code for code in ['F01;1', 'F03;1', 'F05;1', 'F10;1', 'F51;1', 'F60;1', 'F61;1', 'F62;1'] if code in status), 'F10;1')
-                    row.append(matched_code)
+                if '(Leave)' in status:
+                    row.append('')
                 elif status == 'Weekly Off':
-                    row.append('Off')
-                elif status == 'Present':
-                    var_str = st['net_variance']
-                    if 'H06;' in var_str or 'H07;' in var_str:
-                        row.append(var_str)
-                    else:
-                        row.append('P')
-                elif status == 'Mis Punch':
-                    row.append('Mis Punch')
+                    row.append('Weekly Off')
+                elif status == 'Absent':
+                    row.append('Absent')
+                elif status in ('Present', 'Mis Punch'):
+                    row.append('Present')
                 else:
-                    row.append('F03;1')
+                    row.append('Absent')
             else:
                 curr_dt_obj = datetime.strptime(d_str, '%Y-%m-%d')
                 if curr_dt_obj.strftime('%A').upper() == emp_info['off'].upper():
-                    row.append('Off')
+                    row.append('Weekly Off')
                 else:
-                    row.append('F03;1')
+                    row.append('Absent')
         ws.append(row)
+
+    for cell in ws[4]:
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(fill_type='solid', fgColor='334155')
+        cell.alignment = Alignment(horizontal='center')
+
+    absent_fill = PatternFill(fill_type='solid', fgColor='FF0000')
+    absent_font = Font(color='FFFFFF', bold=True)
+    for row in ws.iter_rows(min_row=5, min_col=4, max_col=3 + len(date_list)):
+        for cell in row:
+            if cell.value == 'Absent':
+                cell.fill = absent_fill
+                cell.font = absent_font
         
     excel_io = io.BytesIO()
     wb.save(excel_io)
